@@ -7,7 +7,7 @@ export interface Item {
   status: ItemStatus;
   input_type: ItemInputType;
   input_url?: string;
-  title?: string;
+  title?: string | null;
   source?: string; // source of the item (e.g. "linkedin", "reddit", "substack", "twitter", "email", "other")
   created_at: string;
   updated_at: string;
