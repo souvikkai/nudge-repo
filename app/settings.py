@@ -15,22 +15,21 @@ class Settings(BaseSettings):
       if it is missing, to avoid ambiguous runtime behavior.
     """
 
+
     app_name: str = "nudge-backend"
     environment: str = "dev"
 
-    #Placeholder for future DB wiring.
-    database_url: str = "postgresql+psycopg://postgres:postgres@localhost:5432/nudge"
     #Required (no default): supports both local docker Postgres and Neon.
     #Make sure to use SQLAlchemy-compatible URL.
     #Local dev example: postgresql+psycopg://postgres:postgres@localhost:5432/nudge
     #Neon example: postgresql+psycopg://USER:PASSWORD@HOST/DB?sslmode=require
+    database_url: str
 
 
 
     model_config = SettingsConfigDict(env_file=".env", env_prefix="", extra="ignore")
 
 
-settings = Settings()
 try:
     settings = Settings()
 except ValidationError as e:
