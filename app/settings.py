@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from uuid import UUID
+
 from pydantic import ValidationError
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -24,6 +26,11 @@ class Settings(BaseSettings):
     #Local dev example: postgresql+psycopg://postgres:postgres@localhost:5432/nudge
     #Neon example: postgresql+psycopg://USER:PASSWORD@HOST/DB?sslmode=require
     database_url: str
+
+    #Minimal MVP auth:
+    #If X-User-Id header is missing, we fall back to this fixed UUID.
+    #Set it in .env for local dev; do NOT use this in production auth.
+    dev_user_id: UUID = UUID("00000000-0000-0000-0000-000000000001")
 
 
 
