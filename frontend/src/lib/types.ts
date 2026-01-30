@@ -1,27 +1,35 @@
 export type ItemStatus = 'queued' | 'processing' | 'succeeded' | 'needs_user_text' | 'failed';
 
-export type ItemInputType = "url" | "text";
+export type SourceType = "url" | "pasted_text";
 
-export interface Item {
+export interface ItemListEntry {
   id: string;
   status: ItemStatus;
-  input_type: ItemInputType;
-  input_url?: string;
-  title?: string | null;
-  source?: string; // source of the item (e.g. "linkedin", "reddit", "substack", "twitter", "email", "other")
+  status_detail: string | null;
+  source_type: SourceType;
+  requested_url: string | null;
+  final_text_source: string | null;
+  title: string | null;
   created_at: string;
   updated_at: string;
-  error_code?: string;
-  error_detail?: string;
 }
 
 export interface ItemContent {
-  canonical_text: string; // required when status is 'succeeded', the canonical text of the item
+  canonical_text?: string | null;
   extracted_text?: string;
   user_pasted_text?: string;
 }
 
-export interface ItemDetailResponse {
-  item: Item;
+export type ItemCreateResponse = {
+  id: string;
+  status: ItemStatus;
+};
+
+export type ItemListResponse = {
+  items: ItemListEntry[];
+  next_cursor?: string | null;
+};
+
+export type ItemDetailResponse = ItemListEntry & {
   content?: ItemContent | null;
-}
+};

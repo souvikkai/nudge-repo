@@ -1,30 +1,56 @@
-import type { Item, ItemContent, ItemDetailResponse, ItemInputType, ItemStatus } from "./types";
+import type {
+  ItemContent,
+  ItemCreateResponse,
+  ItemDetailResponse,
+  ItemListEntry,
+  ItemListResponse,
+  ItemStatus,
+  SourceType,
+} from "./types";
 
 const USE_MOCK_API = process.env.NEXT_PUBLIC_USE_MOCK_API === "true";
 const API_BASE_URL = (process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000").replace(/\/$/, "");
-
-// ---- Requests ----
-export type CreateItemRequest =
-  | { input_type: "url"; input_url: string }
-  | { input_type: "text"; user_pasted_text: string };
-
-export type PatchItemTextRequest = { user_pasted_text: string };
 
 // ---- Helpers ----
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${API_BASE_URL}${path}`, {
-    ...init,
-    headers: {
-      "Content-Type": "application/json",
-      ...(init?.headers || {}),
-    },
-  });
+  const fullUrl = `${API_BASE_URL}${path}`;
+  const method = (init?.method as string) || "GET";
+  console.log("[apiFetch]", method, fullUrl);
+
+  let res: Response;
+  try {
+    res = await fetch(fullUrl, {
+      ...init,
+      headers: {
+        "Content-Type": "application/json",
+        ...(init?.headers || {}),
+      },
+    });
+  } catch (error) {
+    console.error("[apiFetch failed]", fullUrl, error);
+    throw error;
+  }
 
   if (!res.ok) {
-    const body = await res.text().catch(() => "");
-    throw new Error(`HTTP ${res.status} ${res.statusText}${body ? ` - ${body}` : ""}`);
+    let message: string;
+    const raw = await res.text().catch(() => "");
+    try {
+      const json = JSON.parse(raw) as { detail?: string | { msg?: string }[] };
+      if (typeof json.detail === "string") {
+        message = json.detail;
+      } else if (Array.isArray(json.detail) && json.detail[0]?.msg) {
+        message = json.detail.map((d) => d.msg).join("; ");
+      } else {
+        message = raw || `${res.status} ${res.statusText}`;
+      }
+    } catch {
+      message = raw || `${res.status} ${res.statusText}`;
+    }
+    const err = new Error(message) as Error & { status?: number };
+    err.status = res.status;
+    throw err;
   }
 
   return res.json() as Promise<T>;
@@ -38,45 +64,38 @@ function randomId() {
   return Math.random().toString(36).slice(2, 10);
 }
 
-function domainFromUrl(url: string): string | null {
-  try {
-    return new URL(url).hostname;
-  } catch {
-    return null;
-  }
-}
-
-// ---- Mock data: list is metadata-only; content is stored separately ----
-const mockItems: Item[] = [
+// ---- Mock data ----
+const mockEntries: ItemListEntry[] = [
   {
     id: "1",
     status: "succeeded",
-    input_type: "url" as ItemInputType,
-    input_url: "https://example.com/article",
+    status_detail: null,
+    source_type: "url",
+    requested_url: "https://example.com/article",
+    final_text_source: "example.com",
     title: "Example Article",
-    source: "example.com",
     created_at: "2026-01-23T10:00:00Z",
     updated_at: "2026-01-23T10:05:00Z",
   },
   {
     id: "2",
     status: "processing",
-    input_type: "url" as ItemInputType,
-    input_url: "https://example.com/another",
+    status_detail: null,
+    source_type: "url",
+    requested_url: "https://example.com/another",
+    final_text_source: null,
     title: null,
-    source: "example.com",
     created_at: "2026-01-23T10:10:00Z",
     updated_at: "2026-01-23T10:10:00Z",
   },
   {
     id: "3",
     status: "needs_user_text",
-    input_type: "url" as ItemInputType,
-    input_url: "https://example.com/needs-text",
+    status_detail: "Could not extract readable text; please paste it.",
+    source_type: "url",
+    requested_url: "https://example.com/needs-text",
+    final_text_source: null,
     title: "Article Needs Text",
-    source: "example.com",
-    error_code: "EXTRACTION_FAILED",
-    error_detail: "Could not extract readable text; please paste it.",
     created_at: "2026-01-23T10:15:00Z",
     updated_at: "2026-01-23T10:20:00Z",
   },
@@ -88,65 +107,74 @@ const mockContentById: Record<string, ItemContent | null> = {
     extracted_text: "This is the extracted text from the article.",
   },
   "2": null,
-  "3": null, // needs user text
+  "3": null,
 };
 
 // ---- API functions ----
 
-// POST /items
-export async function createItem(data: CreateItemRequest): Promise<Item> {
+/** POST /items — returns only { id, status }. Body: url?, pasted_text?, prefer_pasted_text. At least one of url or pasted_text required. */
+export async function createItem(params: {
+  url?: string;
+  pasted_text?: string;
+  prefer_pasted_text?: boolean;
+}): Promise<ItemCreateResponse> {
+  const { url, pasted_text, prefer_pasted_text = false } = params;
+  const hasUrl = url != null && String(url).trim() !== "";
+  const hasPasted = pasted_text != null && String(pasted_text).trim() !== "";
+  if (!hasUrl && !hasPasted) {
+    throw new Error("Provide at least one of url or pasted_text.");
+  }
+
   if (USE_MOCK_API) {
     await delay(300);
-
     const id = randomId();
     const now = isoNow();
+    const isPasted = hasPasted && (prefer_pasted_text || !hasUrl);
 
-    const isText = data.input_type === "text";
-
-    const item: Item = {
+    const entry: ItemListEntry = {
       id,
-      status: isText ? ("succeeded" as ItemStatus) : ("queued" as ItemStatus),
-      input_type: data.input_type,
-      input_url: data.input_type === "url" ? data.input_url : undefined,
+      status: isPasted ? ("succeeded" as ItemStatus) : ("queued" as ItemStatus),
+      status_detail: null,
+      source_type: isPasted ? "pasted_text" : "url",
+      requested_url: hasUrl ? url!.trim() : null,
+      final_text_source: isPasted ? "pasted_text" : null,
       title: null,
-      source: data.input_type === "url" ? (domainFromUrl(data.input_url) ?? "unknown") : "pasted_text",
       created_at: now,
       updated_at: now,
     };
+    mockEntries.unshift(entry);
 
-    mockItems.unshift(item);
-
-    if (isText) {
+    if (isPasted) {
       mockContentById[id] = {
-        canonical_text: data.user_pasted_text,
-        user_pasted_text: data.user_pasted_text,
+        canonical_text: pasted_text!.trim(),
+        user_pasted_text: pasted_text!.trim(),
       };
     } else {
       mockContentById[id] = null;
-
-      // simulate async lifecycle
       setTimeout(() => {
-        const idx = mockItems.findIndex((x) => x.id === id);
-        if (idx >= 0) mockItems[idx] = { ...mockItems[idx], status: "processing", updated_at: isoNow() };
+        const idx = mockEntries.findIndex((x) => x.id === id);
+        if (idx >= 0) mockEntries[idx] = { ...mockEntries[idx], status: "processing", updated_at: isoNow() };
       }, 300);
-
       setTimeout(() => {
         const ok = Math.random() < 0.75;
-        const idx = mockItems.findIndex((x) => x.id === id);
+        const idx = mockEntries.findIndex((x) => x.id === id);
         if (idx < 0) return;
-
         if (ok) {
-          mockItems[idx] = { ...mockItems[idx], status: "succeeded", updated_at: isoNow() };
+          mockEntries[idx] = {
+            ...mockEntries[idx],
+            status: "succeeded",
+            final_text_source: "example.com",
+            updated_at: isoNow(),
+          };
           mockContentById[id] = {
-            canonical_text: "Mock canonical_text from extracted content.",
-            extracted_text: "Mock extracted_text.",
+            canonical_text: "Mock canonical text.",
+            extracted_text: "Mock extracted text.",
           };
         } else {
-          mockItems[idx] = {
-            ...mockItems[idx],
+          mockEntries[idx] = {
+            ...mockEntries[idx],
             status: "needs_user_text",
-            error_code: "EXTRACTION_FAILED",
-            error_detail: "Could not extract readable text; please paste it.",
+            status_detail: "Could not extract readable text; please paste it.",
             updated_at: isoNow(),
           };
           mockContentById[id] = null;
@@ -154,78 +182,84 @@ export async function createItem(data: CreateItemRequest): Promise<Item> {
       }, 1400);
     }
 
-    return item;
+    return { id, status: entry.status };
   }
 
-  return apiFetch<Item>("/items", {
+  const body = {
+    url: hasUrl ? url!.trim() : undefined,
+    pasted_text: hasPasted ? pasted_text!.trim() : undefined,
+    prefer_pasted_text: prefer_pasted_text ?? false,
+  };
+  return apiFetch<ItemCreateResponse>("/items", {
     method: "POST",
-    body: JSON.stringify(data),
+    body: JSON.stringify(body),
   });
 }
 
-// GET /items
-export async function listItems(): Promise<Item[]> {
+/** GET /items — returns { items, next_cursor? }. Optional limit and cursor. */
+export async function listItems(params?: {
+  limit?: number;
+  cursor?: string | null;
+}): Promise<ItemListResponse> {
   if (USE_MOCK_API) {
     await delay(200);
-    return mockItems;
+    return { items: mockEntries, next_cursor: null };
   }
 
-  return apiFetch<Item[]>("/items", { method: "GET" });
+  const search = new URLSearchParams();
+  if (params?.limit != null) search.set("limit", String(params.limit));
+  if (params?.cursor != null && params.cursor !== "") search.set("cursor", params.cursor);
+  const qs = search.toString() ? `?${search.toString()}` : "";
+  return apiFetch<ItemListResponse>(`/items${qs}`, { method: "GET" });
 }
 
-// GET /items/{id}?include_content=true
-export async function getItem(id: string, includeContent = true): Promise<ItemDetailResponse> {
+/** GET /items/{id} — returns single ItemDetailResponse. include_content defaults false. */
+export async function getItem(id: string, includeContent = false): Promise<ItemDetailResponse> {
   if (USE_MOCK_API) {
     await delay(200);
-
-    const item = mockItems.find((x) => x.id === id);
-    if (!item) throw new Error(`Item ${id} not found`);
-
-    return {
-      item,
-      content: includeContent ? (mockContentById[id] ?? null) : null,
-    };
+    const entry = mockEntries.find((x) => x.id === id);
+    if (!entry) {
+      const err = new Error(`Item ${id} not found`) as Error & { status?: number };
+      err.status = 404;
+      throw err;
+    }
+    const content = includeContent ? (mockContentById[id] ?? null) : null;
+    return { ...entry, content };
   }
 
-  const qs = includeContent ? "?include_content=true" : "";
+  const qs = includeContent ? "?include_content=true" : "?include_content=false";
   return apiFetch<ItemDetailResponse>(`/items/${id}${qs}`, { method: "GET" });
 }
 
-// PATCH /items/{id}/text
-export async function patchItemText(id: string, text: string): Promise<ItemDetailResponse> {
+/** PATCH /items/{id} — body { pasted_text }. Returns single ItemDetailResponse. */
+export async function patchItemText(id: string, pasted_text: string): Promise<ItemDetailResponse> {
   if (USE_MOCK_API) {
     await delay(300);
-
-    const idx = mockItems.findIndex((x) => x.id === id);
-    if (idx < 0) throw new Error(`Item ${id} not found`);
-
-    const item = mockItems[idx];
-    if (item.status !== "needs_user_text") {
+    const idx = mockEntries.findIndex((x) => x.id === id);
+    if (idx < 0) {
+      const err = new Error(`Item ${id} not found`) as Error & { status?: number };
+      err.status = 404;
+      throw err;
+    }
+    const entry = mockEntries[idx];
+    if (entry.status !== "needs_user_text") {
       const e = new Error("CONFLICT") as Error & { status?: number };
       e.status = 409;
       throw e;
     }
-
-    const updated: Item = {
-      ...item,
+    const updated: ItemListEntry = {
+      ...entry,
       status: "succeeded",
-      error_code: undefined,
-      error_detail: undefined,
+      status_detail: null,
       updated_at: isoNow(),
     };
-
-    mockItems[idx] = updated;
-    mockContentById[id] = {
-      canonical_text: text,
-      user_pasted_text: text,
-    };
-
-    return { item: updated, content: mockContentById[id] };
+    mockEntries[idx] = updated;
+    mockContentById[id] = { canonical_text: pasted_text, user_pasted_text: pasted_text };
+    return { ...updated, content: mockContentById[id] };
   }
 
-  return apiFetch<ItemDetailResponse>(`/items/${id}/text`, {
+  return apiFetch<ItemDetailResponse>(`/items/${id}`, {
     method: "PATCH",
-    body: JSON.stringify({ user_pasted_text: text }),
+    body: JSON.stringify({ pasted_text }),
   });
 }
-
