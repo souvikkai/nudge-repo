@@ -27,16 +27,19 @@ def upgrade() -> None:
         "succeeded",
         "failed",
         name="item_status",
+        create_type=False
     )
     item_source_type = postgresql.ENUM(
         "url",
         "pasted_text",
         name="item_source_type",
+        create_type=False
     )
     item_final_text_source = postgresql.ENUM(
         "extracted_from_url",
         "user_pasted_text",
         name="item_final_text_source",
+        create_type=False
     )
 
     item_status.create(op.get_bind(), checkfirst=True)
