@@ -39,8 +39,29 @@ services:
         uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
       "
 
-  # Optional one-shot migration runner:
+  worker:
+    image: python:3.11-slim
+    working_dir: /app
+    volumes:
+      - .:/app
+    environment:
+      DATABASE_URL: postgresql+psycopg://postgres:postgres@db:5432/nudge?sslmode=disable
+      DEV_USER_ID: 00000000-0000-0000-0000-000000000001
+
+      #Optional tuning (safe defaults already exist)
+      WORKER_POLL_SECONDS: 3
+      WORKER_BATCH_SIZE: 5
+    depends_on:
+      db:
+        condition: service_healthy
+    command: >
+      sh -lc "
+        pip install --no-cache-dir -r Requirements.txt &&
+        python -m app.worker
+      "  
+  
   # Run with: docker compose run --rm migrate
+  # Optional one-shot migration runner:
   migrate:
     image: python:3.11-slim
     working_dir: /app
