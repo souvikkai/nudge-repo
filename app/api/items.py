@@ -4,12 +4,13 @@ from datetime import datetime
 from typing import Optional
 from uuid import UUID, uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.auth import get_current_user_id
 from app.db import get_db
+from app.settings import settings
 from app.models.mvp import (
     Item,
     ItemContent,
@@ -45,6 +46,7 @@ def _decode_cursor(cursor: str) -> tuple[datetime, UUID]:
 @router.post("", response_model=ItemCreateResponse)
 def create_item(
     body: ItemCreateRequest,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     user_id: UUID = Depends(get_current_user_id),
 ) -> ItemCreateResponse:
@@ -69,6 +71,13 @@ def create_item(
         db.add(item)
         db.commit()
         db.refresh(item)
+        #Dev convenience addition:
+        #- Canonical processing still happens in the worker process (`python -m app.worker`).
+        #- In dev, we also "nudge" the worker by running one batch via BackgroundTasks.
+        if settings.environment == "dev":
+            from app.worker.worker import run_once
+            background_tasks.add_task(run_once)
+
         return ItemCreateResponse(id=item.id, status=item.status)
 
     #Otherwise: create queued item from URL (store pasted text if provided as fallback input)

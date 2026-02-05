@@ -582,9 +582,14 @@ def _claim_and_process_batch(cfg: WorkerConfig) -> int:
 
 
 def run_once() -> None:
-    cfg = WorkerConfig()
-    processed = _claim_and_process_batch(cfg)
-    logger.info("run_once processed=%s", processed)
+     #Safe to call from FastAPI BackgroundTasks:
+     #- never raise exceptions to caller (best-effort dev "nudge")
+     try:
+         cfg = WorkerConfig()
+         processed = _claim_and_process_batch(cfg)
+         logger.info("run_once processed=%s", processed)
+     except Exception:
+         logger.exception("run_once failed (best-effort dev nudge)")
 
 
 def run_forever() -> None:
