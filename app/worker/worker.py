@@ -6,7 +6,8 @@ import time
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Callable, Optional, Sequence, Tuple
-from urllib.parse import urlparse
+from urllib.parse import unquote, urlparse
+import re
 
 import httpx
 import trafilatura
@@ -134,6 +135,185 @@ def extract_readable_text(html: str, cfg: WorkerConfig) -> Tuple[Optional[str], 
         text = text[: cfg.max_chars]
 
     return text, None
+
+# ----------------------------
+#Extractor dispatch (domain-specific)
+# ----------------------------
+
+_WIKIPEDIA_SECTION_STOP_HEADINGS = {
+    "references",
+    "notes",
+    "citations",
+    "bibliography",
+    "further reading",
+    "external links",
+    "see also",
+    "sources",
+}
+
+
+def _is_wikipedia_host(host: Optional[str]) -> bool:
+    host = (host or "").lower().strip(".")
+    return bool(host) and host.endswith(".wikipedia.org")
+
+
+def _is_reddit_host(host: Optional[str]) -> bool:
+    host = (host or "").lower().strip(".")
+    return host in {"reddit.com", "www.reddit.com", "old.reddit.com", "redd.it"}
+
+
+def _is_substack_host(host: Optional[str]) -> bool:
+    host = (host or "").lower().strip(".")
+    return bool(host) and host.endswith(".substack.com")
+
+
+def _normalize_whitespace(text: str) -> str:
+    # Normalize line endings + trim, collapse excessive blank lines.
+    text = (text or "").replace("\r\n", "\n").replace("\r", "\n")
+    lines = [ln.rstrip() for ln in text.split("\n")]
+    text = "\n".join(lines).strip()
+    # Collapse 3+ newlines to 2 newlines.
+    text = re.sub(r"\n{3,}", "\n\n", text)
+    return text.strip()
+
+
+def _drop_wikipedia_sections(text: str) -> str:
+    """Drop whole trailing sections by common headings.
+
+    Heuristic: If we hit a stop-heading, we drop that heading and everything after it.
+    Wikipedia plaintext extracts commonly include headings like '== References =='.
+    """
+    if not text:
+        return text
+
+    heading_re = re.compile(r"^=+\s*(.+?)\s*=+$")
+    bare_re = re.compile(r"^\s*(.+?)\s*$")
+
+    out_lines: list[str] = []
+    for ln in text.split("\n"):
+        m = heading_re.match(ln.strip())
+        if not m:
+            # Sometimes extracts contain bare headings without '='.
+            m2 = bare_re.match(ln)
+            if m2:
+                candidate = (m2.group(1) or "").strip().lower()
+                if candidate in _WIKIPEDIA_SECTION_STOP_HEADINGS:
+                    break
+            out_lines.append(ln)
+            continue
+
+        heading = (m.group(1) or "").strip().lower()
+        if heading in _WIKIPEDIA_SECTION_STOP_HEADINGS:
+            break
+        out_lines.append(ln)
+
+    return "\n".join(out_lines).strip()
+
+
+def _clean_wikipedia_text(text: str) -> str:
+    text = _normalize_whitespace(text)
+    # Remove bracketed numeric citations like [1], [23]
+    text = re.sub(r"\[(\d+)\]", "", text)
+    # Remove now-extra spaces created by citation removal.
+    text = re.sub(r"[ \t]{2,}", " ", text)
+    text = _drop_wikipedia_sections(text)
+    return _normalize_whitespace(text)
+
+
+def _extract_wikipedia_via_api(url: str, cfg: WorkerConfig) -> Tuple[Optional[str], Optional[str]]:
+    """Extract Wikipedia article content via the official MediaWiki API.
+
+    Must never raise; returns (text, error_code).
+    """
+    try:
+        p = urlparse(url)
+        host = (p.hostname or "").lower().strip(".")
+        # Determine language subdomain (e.g. 'en' from 'en.wikipedia.org')
+        lang = "en"
+        if host.endswith(".wikipedia.org"):
+            parts = host.split(".")
+            if parts:
+                # 'en' in 'en.wikipedia.org'
+                lang = parts[0] or "en"
+
+        # Extract title from /wiki/<Title>
+        title = ""
+        path = p.path or ""
+        if path.startswith("/wiki/"):
+            title = path[len("/wiki/") :]
+        else:
+            # Not an article path; attempt best-effort from last segment
+            title = path.strip("/").split("/")[-1]
+
+        title = unquote(title or "")
+        title = title.replace("_", " ").strip()
+        if not title:
+            return None, "empty_extraction"
+
+        api_url = f"https://{lang}.wikipedia.org/w/api.php"
+        params = {
+            "action": "query",
+            "prop": "extracts",
+            "explaintext": "1",
+            "exsectionformat": "plain",
+            "redirects": "1",
+            "titles": title,
+            "format": "json",
+            "formatversion": "2",
+        }
+
+        headers = {"User-Agent": cfg.user_agent, "Accept": "application/json"}
+        timeout = httpx.Timeout(
+            connect=cfg.connect_timeout,
+            read=cfg.read_timeout,
+            write=cfg.read_timeout,
+            pool=cfg.read_timeout,
+        )
+
+        with httpx.Client(follow_redirects=True, headers=headers, timeout=timeout) as client:
+            resp = client.get(api_url, params=params)
+
+        if resp.status_code != 200:
+            return None, "extraction_failed"
+
+        data = resp.json()
+        pages = (((data or {}).get("query") or {}).get("pages")) or []
+        if not pages or not isinstance(pages, list):
+            return None, "empty_extraction"
+
+        page0 = pages[0] if pages else {}
+        extract = (page0 or {}).get("extract")
+        text = (extract or "").strip()
+        if not text:
+            return None, "empty_extraction"
+
+        text = _clean_wikipedia_text(text)
+
+        if not text:
+            return None, "empty_extraction"
+
+        if len(text) < cfg.min_chars:
+            return None, "too_short"
+
+        if len(text) > cfg.max_chars:
+            text = text[: cfg.max_chars]
+
+        return text, None
+
+    except Exception as e:
+        logger.info("wikipedia_api_extract_failed url=%s error=%s", url, _short_detail(str(e)))
+        return None, "extraction_failed"
+
+
+def _extract_reddit_via_api(url: str, cfg: WorkerConfig) -> Tuple[Optional[str], Optional[str]]:
+    """Stub for future: Reddit API / JSON extraction (not implemented yet)."""
+    return None, "extraction_failed"
+
+
+def _extract_substack_best_effort(url: str, cfg: WorkerConfig) -> Tuple[Optional[str], Optional[str]]:
+    """Stub for future: Substack best-effort extraction (not implemented yet)."""
+    return None, "extraction_failed"
+
 
 
 # ----------------------------
@@ -409,18 +589,44 @@ def process_item(
             return
 
     #Network fetch + extraction (NO DB locks held)
-    fetch = fetcher(url, cfg)
 
     extracted_text: Optional[str] = None
     extraction_error_code: Optional[str] = None
-    if fetch.ok and fetch.body_bytes is not None:
-        #Decode best-effort for HTML
-        try:
-            html = fetch.body_bytes.decode("utf-8", errors="replace")
-        except Exception:
-            html = fetch.body_bytes.decode(errors="replace")
 
-        extracted_text, extraction_error_code = extract_readable_text(html, cfg)
+    host = None
+    try:
+        host = urlparse(url).hostname
+    except Exception:
+        host = None
+
+    if _is_wikipedia_host(host):
+        #Wikipedia: use official API (do NOT scrape HTML).
+        extracted_text, extraction_error_code = _extract_wikipedia_via_api(url, cfg)
+        #Create a synthetic FetchResult so attempt logging fields remain populated.
+        fetch = FetchResult(
+            ok=True,
+            final_url=url,
+            http_status=None,
+            content_type="application/json",
+            body_bytes=None,
+            error_code=None,
+            error_detail=None,
+            retryable=False,
+        )
+    else:
+        #Scaffold: domain detection for future specialized extractors.
+        #For now, Reddit/Substack still use the generic HTML fetch + extraction path
+        #to preserve current behavior.
+        fetch = fetcher(url, cfg)
+
+        if fetch.ok and fetch.body_bytes is not None:
+            #Decode best-effort for HTML
+            try:
+                html = fetch.body_bytes.decode("utf-8", errors="replace")
+            except Exception:
+                html = fetch.body_bytes.decode(errors="replace")
+
+            extracted_text, extraction_error_code = extract_readable_text(html, cfg)
 
     finished_at = _utcnow()
 
