@@ -214,9 +214,12 @@ def _clean_wikipedia_text(text: str) -> str:
     text = _normalize_whitespace(text)
     # Remove bracketed numeric citations like [1], [23]
     text = re.sub(r"\[(\d+)\]", "", text)
-    # Remove now-extra spaces created by citation removal.
-    text = re.sub(r"[ \t]{2,}", " ", text)
+    #Drop unwanted trailing sections
     text = _drop_wikipedia_sections(text)
+    #Collapse all newlines into single spaces.
+    text = re.sub(r"\s*\n+\s*", " ", text)
+    #Collapse multiple spaces
+    text = re.sub(r"\s{2,}", " ", text)
     return _normalize_whitespace(text)
 
 
