@@ -28,6 +28,27 @@ services:
 
       # Optional: your settings.py already defaults this, but leaving it explicit is fine
       DEV_USER_ID: 00000000-0000-0000-0000-000000000001
+       # -------------------------
+      # LLM tier registry (no secrets committed)
+      # Use your local .env to provide these values.
+      # docker compose automatically loads .env for variable substitution.
+      # -------------------------
+      LLM_DEFAULT_MODEL_KEY: ${LLM_DEFAULT_MODEL_KEY:-mid}
+
+      LLM_STRONG_PROVIDER: ${LLM_STRONG_PROVIDER:-placeholder}
+      LLM_STRONG_MODEL: ${LLM_STRONG_MODEL:-placeholder}
+      LLM_STRONG_BASE_URL: ${LLM_STRONG_BASE_URL:-}
+      LLM_STRONG_API_KEY: ${LLM_STRONG_API_KEY:-}
+
+      LLM_MID_PROVIDER: ${LLM_MID_PROVIDER:-placeholder}
+      LLM_MID_MODEL: ${LLM_MID_MODEL:-placeholder}
+      LLM_MID_BASE_URL: ${LLM_MID_BASE_URL:-}
+      LLM_MID_API_KEY: ${LLM_MID_API_KEY:-}
+
+      LLM_BUDGET_PROVIDER: ${LLM_BUDGET_PROVIDER:-placeholder}
+      LLM_BUDGET_MODEL: ${LLM_BUDGET_MODEL:-placeholder}
+      LLM_BUDGET_BASE_URL: ${LLM_BUDGET_BASE_URL:-}
+      LLM_BUDGET_API_KEY: ${LLM_BUDGET_API_KEY:-}
     depends_on:
       db:
         condition: service_healthy
@@ -47,6 +68,24 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg://postgres:postgres@db:5432/nudge?sslmode=disable
       DEV_USER_ID: 00000000-0000-0000-0000-000000000001
+
+        # LLM registry (same as API service)
+      LLM_DEFAULT_MODEL_KEY: ${LLM_DEFAULT_MODEL_KEY:-mid}
+
+      LLM_STRONG_PROVIDER: ${LLM_STRONG_PROVIDER:-placeholder}
+      LLM_STRONG_MODEL: ${LLM_STRONG_MODEL:-placeholder}
+      LLM_STRONG_BASE_URL: ${LLM_STRONG_BASE_URL:-}
+      LLM_STRONG_API_KEY: ${LLM_STRONG_API_KEY:-}
+
+      LLM_MID_PROVIDER: ${LLM_MID_PROVIDER:-placeholder}
+      LLM_MID_MODEL: ${LLM_MID_MODEL:-placeholder}
+      LLM_MID_BASE_URL: ${LLM_MID_BASE_URL:-}
+      LLM_MID_API_KEY: ${LLM_MID_API_KEY:-}
+
+      LLM_BUDGET_PROVIDER: ${LLM_BUDGET_PROVIDER:-placeholder}
+      LLM_BUDGET_MODEL: ${LLM_BUDGET_MODEL:-placeholder}
+      LLM_BUDGET_BASE_URL: ${LLM_BUDGET_BASE_URL:-}
+      LLM_BUDGET_API_KEY: ${LLM_BUDGET_API_KEY:-}
 
       #Optional tuning (safe defaults already exist)
       WORKER_POLL_SECONDS: 3

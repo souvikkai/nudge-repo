@@ -117,6 +117,20 @@ class Item(Base):
     )
 
 
+    summaries: Mapped[List["ItemSummary"]] = relationship(
+        back_populates="item",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        order_by="ItemSummary.created_at",
+    )
+
+    summary_attempts: Mapped[List["SummaryAttempt"]] = relationship(
+        back_populates="item",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        order_by="SummaryAttempt.created_at",
+    )
+
 class ItemContent(Base):
     __tablename__ = "item_content"
 
@@ -139,6 +153,93 @@ class ItemContent(Base):
     )
 
     item: Mapped["Item"] = relationship(back_populates="content")
+
+class ItemSummary(Base):
+    __tablename__ = "item_summaries"
+
+    id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+
+    item_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True),
+        ForeignKey("items.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    user_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    # Contract: text values strong|mid|budget (DB enforces via CHECK in migration).
+    model_key: Mapped[str] = mapped_column(Text, nullable=False)
+
+    provider: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    model: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    prompt_version: Mapped[str] = mapped_column(Text, nullable=False)
+
+    input_chars_original: Mapped[int] = mapped_column(Integer, nullable=False)
+    input_chars_used: Mapped[int] = mapped_column(Integer, nullable=False)
+    output_words: Mapped[int] = mapped_column(Integer, nullable=False)
+
+    summary_text: Mapped[str] = mapped_column(Text, nullable=False)
+
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        index=True,
+    )
+
+    item: Mapped["Item"] = relationship(back_populates="summaries")
+
+
+class SummaryAttempt(Base):
+    __tablename__ = "summary_attempts"
+
+    id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+
+    item_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True),
+        ForeignKey("items.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    attempt_no: Mapped[int] = mapped_column(Integer, nullable=False)
+
+    # Contract: text values strong|mid|budget (DB enforces via CHECK in migration).
+    model_key: Mapped[str] = mapped_column(Text, nullable=False)
+
+    provider: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    model: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    prompt_version: Mapped[str] = mapped_column(Text, nullable=False)
+
+    started_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+    finished_at: Mapped[Optional[datetime]] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
+
+    # Contract: succeeded|failed (DB enforces via CHECK in migration).
+    status: Mapped[str] = mapped_column(Text, nullable=False)
+
+    error_detail: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    latency_ms: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        index=True,
+    )
+
+    item: Mapped["Item"] = relationship(back_populates="summary_attempts")
 
 
 class ExtractionAttempt(Base):
