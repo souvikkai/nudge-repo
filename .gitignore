@@ -1,0 +1,30 @@
+# dependencies
+**/node_modules
+
+# next.js
+**/.next
+**/out
+
+# env files
+**/.env
+**/.env.local
+
+# logs
+**/*.log
+
+# OS
+.DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+.venv/
+venv/
+env/
+
+.pytest_cache/
+.coverage
+htmlcov/
