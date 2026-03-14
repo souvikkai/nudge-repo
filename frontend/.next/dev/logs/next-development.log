@@ -1,46 +1,14 @@
-[00:00:01.855] Server  LOG     ✓ Ready in 1258ms
-[00:00:48.734] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
-[00:00:49.067] Browser LOG     [apiFetch] GET http://localhost:8000/items
-[00:00:49.318] Browser ERROR   [apiFetch failed] http://localhost:8000/items {}
-[00:01:06.480] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
-[00:01:06.769] Browser LOG     [apiFetch] GET http://localhost:8000/items
-[00:01:06.769] Browser ERROR   [apiFetch failed] http://localhost:8000/items {}
-[00:06:39.709] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
-[00:06:39.945] Browser LOG     [apiFetch] GET http://localhost:8000/items
-[00:07:43.990] Browser LOG     [apiFetch] POST http://localhost:8000/items
-[00:07:43.990] Browser LOG     [apiFetch] GET http://localhost:8000/items/fce42e0f-455e-48fa-8526-6cc9c0311e14?include_content=false
-[00:07:45.522] Browser LOG     [apiFetch] GET http://localhost:8000/items
-[00:07:47.069] Browser LOG     [apiFetch] GET http://localhost:8000/items
-[00:07:48.585] Browser LOG     [apiFetch] GET http://localhost:8000/items
-[00:07:57.224] Browser LOG     [apiFetchText] POST http://localhost:8000/items/fce42e0f-455e-48fa-8526-6cc9c0311e14/summary
-[00:07:57.224] Browser LOG     [apiFetchText] POST http://localhost:8000/items/06bf89f9-23f0-40ca-85b3-1bf4d6895309/summary
-[00:08:40.257] Browser LOG     [apiFetch] POST http://localhost:8000/items
-[00:08:40.257] Browser LOG     [apiFetch] GET http://localhost:8000/items/ebfb9a0a-0343-4789-9802-a234684d464a?include_content=false
-[00:08:41.794] Browser LOG     [apiFetch] GET http://localhost:8000/items
-[00:08:43.304] Browser LOG     [apiFetch] GET http://localhost:8000/items
-[00:08:47.512] Browser LOG     [apiFetchText] POST http://localhost:8000/items/ebfb9a0a-0343-4789-9802-a234684d464a/summary
-[00:08:47.512] Browser LOG     [apiFetchText] POST http://localhost:8000/items/fce42e0f-455e-48fa-8526-6cc9c0311e14/summary
-[00:08:47.512] Browser LOG     [apiFetchText] POST http://localhost:8000/items/06bf89f9-23f0-40ca-85b3-1bf4d6895309/summary
-[00:08:51.026] Browser LOG     [apiFetchText] POST http://localhost:8000/items/ebfb9a0a-0343-4789-9802-a234684d464a/summary
-[00:08:51.026] Browser LOG     [apiFetchText] POST http://localhost:8000/items/fce42e0f-455e-48fa-8526-6cc9c0311e14/summary
-[00:08:51.026] Browser LOG     [apiFetchText] POST http://localhost:8000/items/06bf89f9-23f0-40ca-85b3-1bf4d6895309/summary
-[00:11:48.930] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
-[00:11:49.109] Browser LOG     [apiFetch] GET http://localhost:8000/items
-[00:12:23.632] Browser LOG     [apiFetch] POST http://localhost:8000/items
-[00:12:23.632] Browser LOG     [apiFetch] GET http://localhost:8000/items/ee8b0d40-b60f-4245-8b76-08f4cd549a04?include_content=false
-[00:12:25.163] Browser LOG     [apiFetch] GET http://localhost:8000/items
-[00:12:26.692] Browser LOG     [apiFetch] GET http://localhost:8000/items
-[00:12:29.126] Browser LOG     [apiFetchText] POST http://localhost:8000/items/ee8b0d40-b60f-4245-8b76-08f4cd549a04/summary
-[00:12:29.126] Browser LOG     [apiFetchText] POST http://localhost:8000/items/ebfb9a0a-0343-4789-9802-a234684d464a/summary
-[00:12:29.126] Browser LOG     [apiFetchText] POST http://localhost:8000/items/fce42e0f-455e-48fa-8526-6cc9c0311e14/summary
-[00:12:35.334] Browser LOG     [apiFetchText] POST http://localhost:8000/items/06bf89f9-23f0-40ca-85b3-1bf4d6895309/summary
-[00:13:30.187] Browser LOG     [apiFetch] POST http://localhost:8000/items
-[00:13:30.187] Browser LOG     [apiFetch] GET http://localhost:8000/items/acced185-b891-4961-a149-a5f688fb14ba?include_content=false
-[00:13:31.705] Browser LOG     [apiFetch] GET http://localhost:8000/items
-[00:13:33.235] Browser LOG     [apiFetch] GET http://localhost:8000/items
-[00:13:34.751] Browser LOG     [apiFetch] GET http://localhost:8000/items
-[00:13:36.042] Browser LOG     [apiFetchText] POST http://localhost:8000/items/acced185-b891-4961-a149-a5f688fb14ba/summary
-[00:13:36.042] Browser LOG     [apiFetchText] POST http://localhost:8000/items/ee8b0d40-b60f-4245-8b76-08f4cd549a04/summary
-[00:13:36.042] Browser LOG     [apiFetchText] POST http://localhost:8000/items/ebfb9a0a-0343-4789-9802-a234684d464a/summary
-[00:13:42.008] Browser LOG     [apiFetchText] POST http://localhost:8000/items/fce42e0f-455e-48fa-8526-6cc9c0311e14/summary
-[00:13:44.370] Browser LOG     [apiFetchText] POST http://localhost:8000/items/06bf89f9-23f0-40ca-85b3-1bf4d6895309/summary
+[00:00:04.247] Server  LOG     ✓ Ready in 3.6s
+[00:00:06.021] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:00:06.214] Browser LOG     [apiFetch] GET http://localhost:8000/items
+[00:00:40.952] Browser LOG     [apiFetch] POST http://localhost:8000/items
+[00:00:40.953] Browser LOG     [apiFetch] GET http://localhost:8000/items/8ea550b8-e58c-402f-aec8-64e6401e5d92?include_content=false
+[00:00:42.502] Browser LOG     [apiFetch] GET http://localhost:8000/items
+[00:00:44.036] Browser LOG     [apiFetch] GET http://localhost:8000/items
+[00:00:45.569] Browser LOG     [apiFetch] GET http://localhost:8000/items
+[00:00:49.244] Browser LOG     [apiFetchText] POST http://localhost:8000/items/8ea550b8-e58c-402f-aec8-64e6401e5d92/summary
+[00:04:33.168] Server  LOG     ✓ Compiled in 1469ms
+[00:04:33.276] Browser LOG     [apiFetch] GET http://localhost:8000/items
+[00:06:24.955] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:06:25.114] Browser LOG     [apiFetch] GET http://localhost:8000/items
+[00:06:28.228] Browser LOG     [apiFetchText] POST http://localhost:8000/items/8ea550b8-e58c-402f-aec8-64e6401e5d92/summary

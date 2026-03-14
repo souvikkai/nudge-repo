@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ItemDetailResponse, ItemListEntry, ItemStatus, SummaryResponse } from "@/lib/types";
@@ -397,6 +397,17 @@ export default function Page() {
                     const summary = summaryById[item.id];
                     const summaryError = summaryErrorById[item.id];
                     const isLoading = !summary && !summaryError;
+                    const lines = summary?.text?.split("\n").map((l) => l.trim()).filter(Boolean) ?? [];
+                    const paragraphLines: string[] = [];
+                    const listLines: string[] = [];
+                    for (const line of lines) {
+                      if (line.startsWith("- ")) {
+                        listLines.push(line.slice(2).trim());
+                      } else if (listLines.length === 0) {
+                        paragraphLines.push(line);
+                      }
+                    }
+                    const paragraph = paragraphLines.join(" ");
                     return (
                       <div key={item.id} className="rounded-lg border border-black/15 bg-white/20 p-4">
                         <div className="mb-2 flex items-start justify-between gap-2">
@@ -408,7 +419,30 @@ export default function Page() {
                         </div>
                         {isLoading && <p className="text-sm text-black/50 italic">Summarizing...</p>}
                         {summaryError && <p className="text-sm text-[#8b1a1a]">{summaryError}</p>}
-                        {summary && <p className="text-sm text-black/80 leading-relaxed">{summary.text}</p>}
+                        {summary && (
+                          <div className="text-sm text-black/80 leading-relaxed space-y-2">
+                            {paragraph && <p>{paragraph}</p>}
+                            {listLines.length > 0 && (
+                              <ul className="list-none space-y-1 pl-0">
+                                {listLines.map((bullet, i) => (
+                                  <li key={i} className="flex gap-2">
+                                    <span className="shrink-0 text-black/70">—</span>
+                                    <span>{bullet}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
+                            {!paragraph && listLines.length === 0 && <p>{summary.text}</p>}
+                          </div>
+                        )}
+                        {summary && item.requested_url && (
+                          <div className="mt-3 pt-2 border-t border-black/10">
+                            <a href={item.requested_url} target="_blank" rel="noopener noreferrer"
+                              className="text-xs text-black/50 hover:text-black/70 underline inline-flex items-center gap-1">
+                              → Read original
+                            </a>
+                          </div>
+                        )}
                       </div>
                     );
                   })}
