@@ -227,6 +227,32 @@ def _truncate_to_words(s: str, max_words: int) -> str:
         return s
     return " ".join(words[:max_words])
 
+@router.get("/{item_id}/summary")
+def get_item_summary(
+    item_id: UUID,
+    db: Session = Depends(get_db),
+    user_id: UUID = Depends(get_current_user_id),
+) -> PlainTextResponse:
+    """
+    Return the most recent cached summary for an item, if one exists.
+    Returns 404 if no summary has been generated yet.
+    Response is text/plain (NOT JSON).
+    """
+    item = db.scalar(select(Item).where(Item.id == item_id, Item.user_id == user_id))
+    if item is None:
+        raise HTTPException(status_code=404, detail="Item not found.")
+
+    summary = db.scalar(
+        select(ItemSummary)
+        .where(ItemSummary.item_id == item_id)
+        .order_by(ItemSummary.created_at.desc())
+        .limit(1)
+    )
+
+    if summary is None:
+        raise HTTPException(status_code=404, detail="No summary found for this item.")
+
+    return PlainTextResponse(summary.summary_text, media_type="text/plain")
 
 @router.post("/{item_id}/summary")
 def create_item_summary(

@@ -62,6 +62,7 @@ export default function Page() {
   const [isSummarizing, setIsSummarizing] = useState(false);
   const [summaryById, setSummaryById] = useState<Record<string, SummaryResponse>>({});
   const [summaryErrorById, setSummaryErrorById] = useState<Record<string, string>>({});
+  const [includePreviousItems, setIncludePreviousItems] = useState(false);
   const [autosaveStatus, setAutosaveStatus] = useState<AutosaveStatus>("idle");
   const [lastSavedUrl, setLastSavedUrl] = useState<string>("");
   const autosaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -146,6 +147,17 @@ export default function Page() {
         setAutosaveStatus("saved");
         const fullEntry = await getItem(createResponse.id, false);
         setItems((prev) => [fullEntry, ...prev]);
+        if (hasSummarized) {
+          try {
+            const summary = await generateSummary(fullEntry.id);
+            setSummaryById((prev) => ({ ...prev, [fullEntry.id]: summary }));
+          } catch (e) {
+            setSummaryErrorById((prev) => ({
+              ...prev,
+              [fullEntry.id]: e instanceof Error ? e.message : "Summary failed",
+            }));
+          }
+        }
         setUrl("");
         setTimeout(() => urlInputRef.current?.focus(), 0);
         clearSavedStatusTimeoutRef.current = setTimeout(() => { setAutosaveStatus("idle"); clearSavedStatusTimeoutRef.current = null; }, 2000);
@@ -210,16 +222,13 @@ export default function Page() {
   const dateFormatter = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" });
   const weekLabel = `This week (Sun-Sat): ${dateFormatter.format(weekStart)} - ${dateFormatter.format(weekEnd)}`;
 
-  const weeklyItems = items.filter((item) => isWithinRange(new Date(item.created_at), weekStart, weekEnd));
-  const succeededItems = weeklyItems.filter((item) => item.status === "succeeded");
-  const queuedOrProcessing = weeklyItems.filter((item) => item.status === "queued" || item.status === "processing");
-  const needsTextItems = weeklyItems.filter((item) => item.status === "needs_user_text");
-
   async function fetchWithConcurrency<T, R>(items: T[], fetchFn: (item: T) => Promise<R>, maxConcurrency: number): Promise<R[]> {
     const results: R[] = [];
     const executing: Set<Promise<void>> = new Set();
     for (const item of items) {
-      const promise = fetchFn(item).then((result) => { results.push(result); });
+      const promise = fetchFn(item).then((result) => {
+        results.push(result);
+      });
       const wrapped = promise.finally(() => executing.delete(wrapped));
       executing.add(wrapped);
       if (executing.size >= maxConcurrency) await Promise.race(executing);
@@ -227,6 +236,52 @@ export default function Page() {
     await Promise.all(executing);
     return results;
   }
+
+  const weeklyItems = items.filter((item) => isWithinRange(new Date(item.created_at), weekStart, weekEnd));
+  const succeededItems = weeklyItems.filter((item) => item.status === "succeeded");
+  const previousItems = items.filter(
+    (item) => item.status === "succeeded" && new Date(item.created_at) < weekStart
+  );
+  const succeededItemsForSummary = includePreviousItems
+    ? [...succeededItems, ...previousItems]
+    : succeededItems;
+  const succeededItemIds = succeededItemsForSummary.map((item) => item.id).join(",");
+  const queuedOrProcessing = weeklyItems.filter((item) => item.status === "queued" || item.status === "processing");
+  const needsTextItems = weeklyItems.filter((item) => item.status === "needs_user_text");
+
+  useEffect(() => {
+    if (succeededItemsForSummary.length === 0) return;
+    const itemsNeedingSummary = succeededItemsForSummary.filter(
+      (item) => !summaryById[item.id] && item.status === "succeeded"
+    );
+    if (itemsNeedingSummary.length === 0) return;
+    setShowSummary(true);
+    setHasSummarized(true);
+    const loadSummaries = async () => {
+      await fetchWithConcurrency(
+        itemsNeedingSummary,
+        async (item) => {
+          try {
+            setSummaryErrorById((prev) => {
+              const next = { ...prev };
+              delete next[item.id];
+              return next;
+            });
+            const summary = await generateSummary(item.id);
+            setSummaryById((prev) => ({ ...prev, [item.id]: summary }));
+          } catch (e) {
+            setSummaryErrorById((prev) => ({
+              ...prev,
+              [item.id]: e instanceof Error ? e.message : "Summary failed",
+            }));
+          }
+          return null;
+        },
+        3
+      );
+    };
+    void loadSummaries();
+  }, [succeededItemIds]);
 
   function getItemDisplayTitle(item: ItemListEntry): string {
     if (item.title) return item.title;
@@ -240,10 +295,8 @@ export default function Page() {
     setShowSummary(true);
     setHasSummarized(true);
     setIsSummarizing(true);
-    setSummaryById({});
-    setSummaryErrorById({});
     await fetchWithConcurrency(
-      succeededItems,
+      succeededItemsForSummary.filter(item => !summaryById[item.id]),
       async (item) => {
         try {
           const summary = await generateSummary(item.id);
@@ -352,7 +405,7 @@ export default function Page() {
               <h2 className="text-xl font-serif font-semibold text-black">Weekly summary</h2>
               <p className="mt-1 text-xs text-black/60">{weekLabel}</p>
             </div>
-            <button type="button" onClick={handleSummarize} disabled={isSummarizing || succeededItems.length === 0}
+            <button type="button" onClick={handleSummarize} disabled={isSummarizing || succeededItemsForSummary.length === 0}
               className="rounded-lg bg-black text-[var(--nudge-bg)] px-4 py-2 text-sm font-medium hover:bg-black/90 disabled:opacity-60 disabled:cursor-not-allowed transition-colors">
               {isSummarizing ? "Summarizing..." : "Summarize"}
             </button>
@@ -391,9 +444,9 @@ export default function Page() {
                 </div>
               )}
 
-              {hasSummarized && succeededItems.length > 0 && (
+              {hasSummarized && succeededItemsForSummary.length > 0 && (
                 <div className="space-y-4">
-                  {succeededItems.map((item) => {
+                  {succeededItemsForSummary.map((item) => {
                     const summary = summaryById[item.id];
                     const summaryError = summaryErrorById[item.id];
                     const isLoading = !summary && !summaryError;
@@ -446,6 +499,19 @@ export default function Page() {
                       </div>
                     );
                   })}
+                </div>
+              )}
+
+              {previousItems.length > 0 && !includePreviousItems && (
+                <div className="flex flex-wrap items-center gap-2 text-sm text-black/60">
+                  <span>You also have {previousItems.length} saved item{previousItems.length !== 1 ? "s" : ""} from previous weeks.</span>
+                  <button
+                    type="button"
+                    onClick={() => setIncludePreviousItems(true)}
+                    className="rounded border border-black/20 bg-white/30 px-2.5 py-1 text-xs font-medium text-black/80 hover:bg-white/40 transition-colors"
+                  >
+                    Include in digest
+                  </button>
                 </div>
               )}
 

@@ -307,7 +307,19 @@ export async function patchItemText(id: string, pasted_text: string): Promise<It
   });
 }
 
-/** POST /items/{id}/summary */
+/** GET /items/{id}/summary — fetch cached summary if it exists */
+async function getCachedSummary(id: string): Promise<string | null> {
+  try {
+    const text = await apiFetchText(`/items/${id}/summary`, { method: "GET" });
+    return text;
+  } catch (e) {
+    const err = e as Error & { status?: number };
+    if (err.status === 404) return null;
+    throw e;
+  }
+}
+
+/** POST /items/{id}/summary — generate and cache a new summary */
 export async function generateSummary(
   id: string,
   modelKey?: "strong" | "mid" | "budget"
@@ -322,6 +334,18 @@ export async function generateSummary(
     };
   }
 
+  // Try cache first — instant if already summarized
+  const cached = await getCachedSummary(id);
+  if (cached) {
+    return {
+      text: cached,
+      provider: "cached",
+      model: "cached",
+      latency_ms: 0,
+    };
+  }
+
+  // No cache — call DeepSeek
   const qs = modelKey ? `?model_key=${modelKey}` : "";
   const text = await apiFetchText(`/items/${id}/summary${qs}`, { method: "POST" });
   return {
