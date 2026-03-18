@@ -137,3 +137,41 @@ Incoming: %s useEffect [[object Object],[object Object],[object Object], [object
 [37:13:38.873] Browser LOG     [apiFetchText] GET http://localhost:8000/items/dd7b42e1-3f8d-4a2c-aeca-e89ce435639b/summary
 [37:13:38.873] Browser LOG     [apiFetchText] GET http://localhost:8000/items/2f5d9928-4b98-4340-b641-69ebda44e50d/summary
 [37:13:38.873] Browser LOG     [apiFetchText] GET http://localhost:8000/items/8ea550b8-e58c-402f-aec8-64e6401e5d92/summary
+[37:29:50.758] Server  LOG     ✓ Compiled in 87ms
+[37:29:50.861] Browser LOG     [apiFetch] GET http://localhost:8000/items
+[37:29:51.137] Browser LOG     [apiFetchText] GET http://localhost:8000/items/730e5255-9e05-439c-9e4b-f4f68c83133a/summary
+[37:29:51.137] Browser LOG     [apiFetchText] GET http://localhost:8000/items/c8db9f17-a0d2-4c30-90a1-572b55a1c65d/summary
+[37:29:51.137] Browser LOG     [apiFetchText] GET http://localhost:8000/items/b51cf386-a944-434e-9794-5e81ab1db31d/summary
+[37:29:51.137] Browser LOG     [apiFetchText] GET http://localhost:8000/items/dd7b42e1-3f8d-4a2c-aeca-e89ce435639b/summary
+[37:29:51.137] Browser LOG     [apiFetchText] GET http://localhost:8000/items/2f5d9928-4b98-4340-b641-69ebda44e50d/summary
+[37:29:51.137] Browser LOG     [apiFetchText] GET http://localhost:8000/items/8ea550b8-e58c-402f-aec8-64e6401e5d92/summary
+[37:30:05.119] Server  LOG     ✓ Compiled in 286ms
+[37:30:05.259] Browser LOG     [apiFetch] GET http://localhost:8000/items
+[37:30:29.498] Browser LOG     [apiFetchText] GET http://localhost:8000/items/acced185-b891-4961-a149-a5f688fb14ba/summary
+[37:30:29.498] Browser LOG     [apiFetchText] GET http://localhost:8000/items/ee8b0d40-b60f-4245-8b76-08f4cd549a04/summary
+[37:30:29.498] Browser LOG     [apiFetchText] GET http://localhost:8000/items/ebfb9a0a-0343-4789-9802-a234684d464a/summary
+[37:30:29.498] Browser LOG     [apiFetchText] GET http://localhost:8000/items/acced185-b891-4961-a149-a5f688fb14ba/summary
+[37:30:29.498] Browser LOG     [apiFetchText] GET http://localhost:8000/items/ee8b0d40-b60f-4245-8b76-08f4cd549a04/summary
+[37:30:29.498] Browser LOG     [apiFetchText] GET http://localhost:8000/items/ebfb9a0a-0343-4789-9802-a234684d464a/summary
+[37:30:29.498] Browser LOG     [apiFetchText] GET http://localhost:8000/items/fce42e0f-455e-48fa-8526-6cc9c0311e14/summary
+[37:30:29.498] Browser LOG     [apiFetchText] GET http://localhost:8000/items/06bf89f9-23f0-40ca-85b3-1bf4d6895309/summary
+[37:30:29.498] Browser LOG     [apiFetchText] GET http://localhost:8000/items/fce42e0f-455e-48fa-8526-6cc9c0311e14/summary
+[37:30:29.498] Browser LOG     [apiFetchText] GET http://localhost:8000/items/06bf89f9-23f0-40ca-85b3-1bf4d6895309/summary
+[94:15:42.441] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[94:15:42.713] Browser LOG     [apiFetch] GET http://localhost:8000/items
+[94:15:44.771] Browser LOG     [apiFetchText] GET http://localhost:8000/items/730e5255-9e05-439c-9e4b-f4f68c83133a/summary
+[94:15:44.771] Browser LOG     [apiFetchText] GET http://localhost:8000/items/c8db9f17-a0d2-4c30-90a1-572b55a1c65d/summary
+[94:15:44.771] Browser LOG     [apiFetchText] GET http://localhost:8000/items/b51cf386-a944-434e-9794-5e81ab1db31d/summary
+[94:15:44.921] Browser LOG     [apiFetchText] GET http://localhost:8000/items/dd7b42e1-3f8d-4a2c-aeca-e89ce435639b/summary
+[94:15:44.921] Browser LOG     [apiFetchText] GET http://localhost:8000/items/2f5d9928-4b98-4340-b641-69ebda44e50d/summary
+[94:15:44.921] Browser LOG     [apiFetchText] GET http://localhost:8000/items/8ea550b8-e58c-402f-aec8-64e6401e5d92/summary
+[94:16:00.274] Browser LOG     [apiFetchText] GET http://localhost:8000/items/acced185-b891-4961-a149-a5f688fb14ba/summary
+[94:16:00.274] Browser LOG     [apiFetchText] GET http://localhost:8000/items/ee8b0d40-b60f-4245-8b76-08f4cd549a04/summary
+[94:16:00.274] Browser LOG     [apiFetchText] GET http://localhost:8000/items/ebfb9a0a-0343-4789-9802-a234684d464a/summary
+[94:16:00.274] Browser LOG     [apiFetchText] GET http://localhost:8000/items/acced185-b891-4961-a149-a5f688fb14ba/summary
+[94:16:00.274] Browser LOG     [apiFetchText] GET http://localhost:8000/items/ee8b0d40-b60f-4245-8b76-08f4cd549a04/summary
+[94:16:00.274] Browser LOG     [apiFetchText] GET http://localhost:8000/items/ebfb9a0a-0343-4789-9802-a234684d464a/summary
+[94:16:00.274] Browser LOG     [apiFetchText] GET http://localhost:8000/items/fce42e0f-455e-48fa-8526-6cc9c0311e14/summary
+[94:16:00.274] Browser LOG     [apiFetchText] GET http://localhost:8000/items/06bf89f9-23f0-40ca-85b3-1bf4d6895309/summary
+[94:16:00.274] Browser LOG     [apiFetchText] GET http://localhost:8000/items/fce42e0f-455e-48fa-8526-6cc9c0311e14/summary
+[94:16:00.274] Browser LOG     [apiFetchText] GET http://localhost:8000/items/06bf89f9-23f0-40ca-85b3-1bf4d6895309/summary

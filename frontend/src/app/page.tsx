@@ -58,6 +58,7 @@ export default function Page() {
   const [viewTab, setViewTab] = useState<"digest" | "saved">("digest");
   const [showSummary, setShowSummary] = useState(false);
   const [showNeedsText, setShowNeedsText] = useState(false);
+  const [showPreviousExpanded, setShowPreviousExpanded] = useState(false);
   const [hasSummarized, setHasSummarized] = useState(false);
   const [isSummarizing, setIsSummarizing] = useState(false);
   const [summaryById, setSummaryById] = useState<Record<string, SummaryResponse>>({});
@@ -502,16 +503,93 @@ export default function Page() {
                 </div>
               )}
 
-              {previousItems.length > 0 && !includePreviousItems && (
-                <div className="flex flex-wrap items-center gap-2 text-sm text-black/60">
-                  <span>You also have {previousItems.length} saved item{previousItems.length !== 1 ? "s" : ""} from previous weeks.</span>
+              {previousItems.length > 0 && (
+                <div className="rounded-lg border border-black/15 bg-white/20">
                   <button
                     type="button"
-                    onClick={() => setIncludePreviousItems(true)}
-                    className="rounded border border-black/20 bg-white/30 px-2.5 py-1 text-xs font-medium text-black/80 hover:bg-white/40 transition-colors"
+                    onClick={() => setShowPreviousExpanded((prev) => !prev)}
+                    className="flex w-full items-center justify-between px-4 py-3 text-sm font-medium text-black"
                   >
-                    Include in digest
+                    <span>
+                      Previous weeks — {previousItems.length} article
+                      {previousItems.length !== 1 ? "s" : ""}
+                    </span>
+                    <span className="text-black/60">
+                      {showPreviousExpanded ? "−" : "+"}
+                    </span>
                   </button>
+                  {showPreviousExpanded && (
+                    <div className="border-t border-black/15 px-4 pb-4 pt-2 space-y-2">
+                      {previousItems.map((item) => {
+                        const hasSummary = !!summaryById[item.id];
+                        return (
+                          <div
+                            key={item.id}
+                            className="flex items-center justify-between gap-3 text-sm text-black/80"
+                          >
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className="truncate">
+                                {getItemDisplayTitle(item)}
+                              </span>
+                              {hasSummary && (
+                                <span className="shrink-0 rounded-full border border-black/20 bg-white/40 px-2 py-0.5 text-[10px] uppercase tracking-wide text-black/70">
+                                  Summarized
+                                </span>
+                              )}
+                            </div>
+                            {item.requested_url && (
+                              <a
+                                href={item.requested_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="shrink-0 text-xs text-black/50 hover:text-black/70 underline"
+                              >
+                                → Read original
+                              </a>
+                            )}
+                          </div>
+                        );
+                      })}
+                      <div className="pt-2">
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            setIncludePreviousItems(true);
+                            const itemsToSummarize = previousItems.filter(
+                              (item) => !summaryById[item.id] && item.status === "succeeded"
+                            );
+                            if (itemsToSummarize.length === 0) return;
+                            setShowSummary(true);
+                            setHasSummarized(true);
+                            await fetchWithConcurrency(
+                              itemsToSummarize,
+                              async (item) => {
+                                try {
+                                  setSummaryErrorById((prev) => {
+                                    const next = { ...prev };
+                                    delete next[item.id];
+                                    return next;
+                                  });
+                                  const summary = await generateSummary(item.id);
+                                  setSummaryById((prev) => ({ ...prev, [item.id]: summary }));
+                                } catch (e) {
+                                  setSummaryErrorById((prev) => ({
+                                    ...prev,
+                                    [item.id]: e instanceof Error ? e.message : "Summary failed",
+                                  }));
+                                }
+                                return null;
+                              },
+                              3
+                            );
+                          }}
+                          className="rounded-lg bg-black text-[var(--nudge-bg)] px-3 py-1.5 text-xs font-medium hover:bg-black/90 transition-colors"
+                        >
+                          Summarize previous
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
