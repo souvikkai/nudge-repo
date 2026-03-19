@@ -32,7 +32,7 @@ Output format:
 - Then: exactly 3 key points as short plain-text lines, each starting with a dash.
 - No bullet symbols, no markdown, no headers, no labels.
 - Do not write "Summary:" or "Key points:" or any prefix.
-- Total output must be 120 words or fewer.
+- Total output must be 200 words or fewer.
 
 Example format:
 The article argues that [thesis]. The author contends that [point]. By [approach], the piece suggests [conclusion].
@@ -46,7 +46,7 @@ If information is not clearly present in the provided text, do not infer or inve
 USER_PROMPT = """Summarize the following article.
 
 Requirements:
-- Maximum 120 words total
+- Maximum 200 words total
 - One paragraph restating the author's thesis (60-80 words)
 - Exactly 3 key points as plain-text lines starting with a dash
 - Neutral third-person tone
@@ -75,7 +75,7 @@ def generate_summary(text: str, model_key: str, prompt_version: str) -> Dict[str
     payload = json.dumps({
         "model": model,
         "temperature": 0.2,
-        "max_tokens": 300,
+        "max_tokens": 500,
         "messages": [
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": user_message},
@@ -98,8 +98,8 @@ def generate_summary(text: str, model_key: str, prompt_version: str) -> Dict[str
         latency_ms = int((time.monotonic() - t0) * 1000)
         summary_text = body["choices"][0]["message"]["content"].strip()
         words = summary_text.split()
-        if len(words) > 120:
-            summary_text = " ".join(words[:120])
+        if len(words) > 200:
+            summary_text = " ".join(words[:200])
         return {
             "text": summary_text,
             "provider": provider,

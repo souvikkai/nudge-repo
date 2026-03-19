@@ -38,7 +38,7 @@ logger = logging.getLogger(__name__)
 
 
 MAX_INPUT_CHARS = 20_000
-WORD_CAP = 120
+WORD_CAP = 200
 ALLOWED_MODEL_KEYS = {"strong", "mid", "budget"}
 PROMPT_VERSION = "v0"
 
@@ -221,11 +221,19 @@ def _count_words(s: str) -> int:
     # Simple whitespace tokenization is sufficient for enforcing a hard word cap.
     return len([w for w in s.split() if w])
 
+
 def _truncate_to_words(s: str, max_words: int) -> str:
     words = [w for w in s.split() if w]
     if len(words) <= max_words:
         return s
-    return " ".join(words[:max_words])
+    # Truncate at word limit first
+    truncated = " ".join(words[:max_words])
+    # Then find the last complete sentence ending
+    for ending in [". ", ".\n", "! ", "!\n", "? ", "?\n"]:
+        last = truncated.rfind(ending)
+        if last > len(truncated) // 2:  # only if not too early
+            return truncated[:last + 1].strip()
+    return truncated
 
 @router.get("/{item_id}/summary")
 def get_item_summary(
