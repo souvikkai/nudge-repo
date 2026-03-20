@@ -70,6 +70,7 @@ export default function Page() {
   const clearSavedStatusTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [textAutosaveStatus, setTextAutosaveStatus] = useState<AutosaveStatus>("idle");
   const [lastSavedText, setLastSavedText] = useState<string>("");
+  const [isAuthChecked, setIsAuthChecked] = useState(false);
   const textAutosaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const textClearSavedStatusTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -80,6 +81,8 @@ export default function Page() {
     const token = localStorage.getItem("nudge_token");
     if (!token) {
       window.location.href = "/login";
+    } else {
+      setIsAuthChecked(true);
     }
   }, []);
 
@@ -318,6 +321,8 @@ export default function Page() {
     );
     setIsSummarizing(false);
   }
+
+  if (!isAuthChecked) return null;
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-12 md:py-14">
