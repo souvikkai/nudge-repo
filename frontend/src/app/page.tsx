@@ -76,6 +76,13 @@ export default function Page() {
   const urlInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
+  useEffect(() => {
+    const token = localStorage.getItem("nudge_token");
+    if (!token) {
+      window.location.href = "/login";
+    }
+  }, []);
+
   const refreshItems = useCallback(async (isManual = false) => {
     if (isManual) setIsManualRefresh(true);
     try {

@@ -40,6 +40,7 @@ class User(Base):
     __tablename__ = "users"
 
     id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    email: Mapped[Optional[str]] = mapped_column(Text, nullable=True, unique=True, index=True)
     created_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=True),
         nullable=False,
@@ -47,6 +48,12 @@ class User(Base):
     )
 
     items: Mapped[List["Item"]] = relationship(
+        back_populates="user",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    
+    magic_tokens: Mapped[List["MagicToken"]] = relationship(
         back_populates="user",
         cascade="all, delete-orphan",
         passive_deletes=True,
@@ -273,3 +280,24 @@ class ExtractionAttempt(Base):
     content_length: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
 
     item: Mapped["Item"] = relationship(back_populates="extraction_attempts")
+
+class MagicToken(Base):
+    __tablename__ = "magic_tokens"
+
+    id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    user_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    token: Mapped[str] = mapped_column(Text, nullable=False, unique=True, index=True)
+    expires_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False)
+    used: Mapped[bool] = mapped_column(default=False, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+    user: Mapped["User"] = relationship(back_populates="magic_tokens")

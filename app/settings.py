@@ -31,7 +31,9 @@ class Settings(BaseSettings):
     #If X-User-Id header is missing, we fall back to this fixed UUID.
     #Set it in .env for local dev; do NOT use this in production auth.
     dev_user_id: UUID = UUID("00000000-0000-0000-0000-000000000001")
-    
+    resend_api_key: str = Field(default="", validation_alias="RESEND_API_KEY")
+    jwt_secret: str = Field(default="dev-secret-change-in-production", validation_alias="JWT_SECRET")
+    frontend_url: str = Field(default="http://localhost:3000", validation_alias="FRONTEND_URL")
         # -----------------------------
     # LLM tier registry (provider-agnostic)
     # -----------------------------

@@ -1,4 +1,4 @@
-﻿import type {
+import type {
   ItemContent,
   ItemCreateResponse,
   ItemDetailResponse,
@@ -25,6 +25,9 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
       ...init,
       headers: {
         "Content-Type": "application/json",
+        ...(typeof window !== "undefined" && localStorage.getItem("nudge_token")
+          ? { "Authorization": `Bearer ${localStorage.getItem("nudge_token")}` }
+          : {}),
         ...(init?.headers || {}),
       },
     });
@@ -68,6 +71,9 @@ async function apiFetchText(path: string, init?: RequestInit): Promise<string> {
       ...init,
       headers: {
         "Content-Type": "application/json",
+        ...(typeof window !== "undefined" && localStorage.getItem("nudge_token")
+          ? { "Authorization": `Bearer ${localStorage.getItem("nudge_token")}` }
+          : {}),
         ...(init?.headers || {}),
       },
     });
