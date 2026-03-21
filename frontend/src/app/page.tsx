@@ -333,9 +333,9 @@ export default function Page() {
         <p className="mt-3 text-xs uppercase tracking-[0.28em] text-[var(--nudge-accent,#b3322a)]">
           For things worth coming back to.
         </p>
-        <span className="mt-2 inline-block rounded border border-black/20 bg-white/30 px-2 py-0.5 text-xs font-medium text-black/70">
-          {process.env.NEXT_PUBLIC_USE_MOCK_API === "true" ? "Mock API" : "Backend API"}
-        </span>
+        <a href="/benchmark" className="mt-2 inline-block rounded border border-black/20 bg-white/30 px-2 py-0.5 text-xs font-medium text-black/70 hover:bg-white/40 transition-colors">
+          Model Benchmark →
+        </a>
       </header>
 
       <div className="mb-6 flex gap-2">

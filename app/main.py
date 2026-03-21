@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.settings import settings
 from app.api.items import router as items_router
 from app.api.auth import router as auth_router
+from app.api.benchmark import router as benchmark_router
 
 app = FastAPI(title=settings.app_name)
 
@@ -21,6 +22,7 @@ app.add_middleware(
 
 app.include_router(items_router)
 app.include_router(auth_router)
+app.include_router(benchmark_router)
 
 @app.get("/health")
 def health() -> dict[str, str]:

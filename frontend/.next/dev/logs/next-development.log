@@ -44,3 +44,30 @@
 [48:45:54.426] Browser LOG     [apiFetchText] GET http://localhost:8000/items/2f5d9928-4b98-4340-b641-69ebda44e50d/summary
 [48:45:54.426] Browser LOG     [apiFetchText] GET http://localhost:8000/items/8ea550b8-e58c-402f-aec8-64e6401e5d92/summary
 [48:45:55.283] Browser LOG     [apiFetch] GET http://localhost:8000/items
+[49:40:07.111] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[49:40:07.324] Browser LOG     [apiFetch] GET http://localhost:8000/items
+[49:41:51.198] Browser LOG     [apiFetch] POST http://localhost:8000/items
+[49:41:51.198] Browser LOG     [apiFetch] GET http://localhost:8000/items/2a4ef868-619e-4a0d-a045-0ff7683a985e?include_content=false
+[49:41:52.750] Browser LOG     [apiFetch] GET http://localhost:8000/items
+[49:41:54.273] Browser LOG     [apiFetch] GET http://localhost:8000/items
+[49:41:55.878] Browser LOG     [apiFetch] GET http://localhost:8000/items
+[49:41:55.878] Browser LOG     [apiFetchText] GET http://localhost:8000/items/2a4ef868-619e-4a0d-a045-0ff7683a985e/summary
+[49:41:55.878] Browser LOG     [apiFetchText] POST http://localhost:8000/items/2a4ef868-619e-4a0d-a045-0ff7683a985e/summary
+[62:41:24.005] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[62:41:25.280] Browser LOG     [apiFetch] GET http://localhost:8000/items
+[62:41:26.284] Browser LOG     [apiFetchText] GET http://localhost:8000/items/2a4ef868-619e-4a0d-a045-0ff7683a985e/summary
+[62:41:35.904] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[62:41:36.005] Browser LOG     [apiFetch] GET http://localhost:8000/items
+[62:51:24.323] Server  LOG     ✓ Compiled in 64ms
+[62:57:15.814] Server  LOG     ✓ Compiled in 50ms
+[63:05:25.111] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[63:05:25.438] Browser LOG     [apiFetch] GET http://localhost:8000/items
+[63:05:25.438] Browser LOG     [apiFetchText] GET http://localhost:8000/items/2a4ef868-619e-4a0d-a045-0ff7683a985e/summary
+[63:05:26.470] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[63:05:26.470] Browser LOG     [apiFetch] GET http://localhost:8000/items
+[63:05:26.664] Browser LOG     [apiFetchText] GET http://localhost:8000/items/2a4ef868-619e-4a0d-a045-0ff7683a985e/summary
+[63:05:30.910] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[63:05:31.021] Browser LOG     [apiFetch] GET http://localhost:8000/items
+[63:06:13.151] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[63:06:13.151] Browser LOG     [apiFetch] GET http://localhost:8000/items
+[63:06:13.313] Browser LOG     [apiFetchText] GET http://localhost:8000/items/2a4ef868-619e-4a0d-a045-0ff7683a985e/summary
