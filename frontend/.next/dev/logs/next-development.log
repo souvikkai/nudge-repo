@@ -71,3 +71,5 @@
 [63:06:13.151] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
 [63:06:13.151] Browser LOG     [apiFetch] GET http://localhost:8000/items
 [63:06:13.313] Browser LOG     [apiFetchText] GET http://localhost:8000/items/2a4ef868-619e-4a0d-a045-0ff7683a985e/summary
+[82:18:28.268] Server  LOG     ✓ Compiled in 391ms
+[82:18:29.281] Browser LOG     [apiFetch] GET http://localhost:8000/items

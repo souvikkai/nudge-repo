@@ -336,6 +336,9 @@ export default function Page() {
         <a href="/benchmark" className="mt-2 inline-block rounded border border-black/20 bg-white/30 px-2 py-0.5 text-xs font-medium text-black/70 hover:bg-white/40 transition-colors">
           Model Benchmark →
         </a>
+        <a href="/analytics" className="mt-2 inline-block rounded border border-black/20 bg-white/30 px-2 py-0.5 text-xs font-medium text-black/70 hover:bg-white/40 transition-colors">
+          Inference Observatory →
+        </a>
       </header>
 
       <div className="mb-6 flex gap-2">
