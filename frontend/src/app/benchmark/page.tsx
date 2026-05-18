@@ -343,20 +343,28 @@ export default function BenchmarkPage() {
             <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 12 }}>
               <div style={{ borderRadius: 8, border: `1px solid ${C.border}`, backgroundColor: C.bg2, padding: "12px 14px" }}>
                 <div style={{ fontSize: 10, letterSpacing: "0.18em", textTransform: "uppercase", color: C.dim, marginBottom: 8 }}>Route reason breakdown</div>
-                {Object.keys(analyticsInsights.route_reason_breakdown).length === 0 ? (
-                  <div style={{ fontSize: 11, color: C.muted }}>No data</div>
-                ) : (
-                  <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 4 }}>
-                    {Object.entries(analyticsInsights.route_reason_breakdown)
-                      .sort((a, b) => b[1] - a[1])
-                      .map(([k, v]) => (
-                        <li key={k} style={{ display: "flex", justifyContent: "space-between", gap: 8, fontSize: 11, fontFamily: "monospace" }}>
-                          <span style={{ wordBreak: "break-word", color: C.text }}>{k}</span>
-                          <span style={{ color: C.bright, flexShrink: 0 }}>{v}</span>
-                        </li>
-                      ))}
-                  </ul>
-                )}
+                {(() => {
+                  const routeEntries = Object.entries(analyticsInsights.route_reason_breakdown).filter(([k]) => {
+                    if (k == null) return false;
+                    const s = String(k).trim();
+                    return s !== "" && s !== "(null)";
+                  });
+                  if (routeEntries.length === 0) {
+                    return <div style={{ fontSize: 11, color: C.muted }}>No data</div>;
+                  }
+                  return (
+                    <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 4 }}>
+                      {routeEntries
+                        .sort((a, b) => b[1] - a[1])
+                        .map(([k, v]) => (
+                          <li key={k} style={{ display: "flex", justifyContent: "space-between", gap: 8, fontSize: 11, fontFamily: "monospace" }}>
+                            <span style={{ wordBreak: "break-word", color: C.text }}>{k}</span>
+                            <span style={{ color: C.bright, flexShrink: 0 }}>{v}</span>
+                          </li>
+                        ))}
+                    </ul>
+                  );
+                })()}
               </div>
               <div style={{ borderRadius: 8, border: `1px solid ${C.border}`, backgroundColor: C.bg2, padding: "12px 14px" }}>
                 <div style={{ fontSize: 10, letterSpacing: "0.18em", textTransform: "uppercase", color: C.dim, marginBottom: 8 }}>Failure category breakdown</div>
