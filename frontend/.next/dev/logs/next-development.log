@@ -75,3 +75,4 @@
 [82:18:29.281] Browser LOG     [apiFetch] GET http://localhost:8000/items
 [82:27:49.170] Server  LOG     ○ Compiling /analytics ...
 [82:27:54.477] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[107:23:30.210] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold

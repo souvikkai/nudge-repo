@@ -4,67 +4,21 @@ import urllib.request
 import json
 from typing import Any, Dict
 from app.settings import settings
+from app.llm.prompts import get_prompt
 
 DEEPSEEK_BASE_URL = "https://api.deepseek.com/chat/completions"
 GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
 
-SYSTEM_PROMPT = """You are a disciplined summarization assistant inside Nudge, a thinking companion app.
 
-Your job is to produce a faithful, minimal summary of an article or document.
-The goal is cognitive distillation — clearly restating the author's core argument.
-
-Tone and voice:
-- Write in a neutral, calm, third-person narrator voice.
-- Avoid hype, enthusiasm, or promotional language.
-
-Content rules:
-- Restate the central argument or thesis of the author.
-- Focus on the main idea rather than listing every section.
-- Use only information present in the provided text.
-
-Prohibited behaviors:
-- Do NOT invent information.
-- Do NOT add interpretation or commentary.
-- Do NOT give advice or evaluate the article.
-- Do NOT introduce external context.
-
-Output format:
-- First: one coherent paragraph of 60-80 words restating the author's thesis.
-- Then: exactly 3 key points as short plain-text lines, each starting with a dash.
-- No bullet symbols, no markdown, no headers, no labels.
-- Do not write "Summary:" or "Key points:" or any prefix.
-- Total output must be 200 words or fewer.
-
-Example format:
-The article argues that [thesis]. The author contends that [point]. By [approach], the piece suggests [conclusion].
-
-- [key point one]
-- [key point two]
-- [key point three]
-
-If information is not clearly present in the provided text, do not infer or invent it."""
-
-USER_PROMPT = """Summarize the following article.
-
-Requirements:
-- Maximum 200 words total
-- One paragraph restating the author's thesis (60-80 words)
-- Exactly 3 key points as plain-text lines starting with a dash
-- Neutral third-person tone
-- No labels, no markdown, no prefixes
-
-Article text:
-{text}"""
-
-
-def _call_deepseek(text: str, model: str, api_key: str) -> tuple[str, int]:
-    user_message = USER_PROMPT.format(text=text[:16000])
+def _call_deepseek(text: str, model: str, api_key: str, prompt_version: str) -> tuple[str, int]:
+    prompt = get_prompt(prompt_version)
+    user_message = prompt.user_prompt.format(text=text[:16000])
     payload = json.dumps({
         "model": model,
         "temperature": 0.2,
         "max_tokens": 500,
         "messages": [
-            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "system", "content": prompt.system_prompt},
             {"role": "user", "content": user_message},
         ],
     }).encode("utf-8")
@@ -86,8 +40,9 @@ def _call_deepseek(text: str, model: str, api_key: str) -> tuple[str, int]:
     return summary_text, latency_ms
 
 
-def _call_gemini(text: str, model: str, api_key: str) -> tuple[str, int]:
-    user_message = f"{SYSTEM_PROMPT}\n\n{USER_PROMPT.format(text=text[:16000])}"
+def _call_gemini(text: str, model: str, api_key: str, prompt_version: str) -> tuple[str, int]:
+    prompt = get_prompt(prompt_version)
+    user_message = prompt.system_prompt + "\n\n" + prompt.user_prompt.format(text=text[:16000])
     url = GEMINI_BASE_URL.format(model=model)
 
     payload = json.dumps({
@@ -136,9 +91,9 @@ def generate_summary(text: str, model_key: str, prompt_version: str) -> Dict[str
 
     try:
         if provider == "gemini":
-            summary_text, latency_ms = _call_gemini(text, model, api_key)
+            summary_text, latency_ms = _call_gemini(text, model, api_key, prompt_version)
         else:
-            summary_text, latency_ms = _call_deepseek(text, model, api_key)
+            summary_text, latency_ms = _call_deepseek(text, model, api_key, prompt_version)
 
         words = summary_text.split()
         if len(words) > 200:

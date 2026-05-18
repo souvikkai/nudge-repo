@@ -7,7 +7,9 @@ from uuid import UUID, uuid4
 
 from sqlalchemy import (
     ForeignKey,
+    Float,
     Integer,
+    String,
     Text,
     Enum as SAEnum,
 )
@@ -238,6 +240,11 @@ class SummaryAttempt(Base):
 
     error_detail: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     latency_ms: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+
+    input_tokens_est: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    output_tokens_est: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    estimated_cost_usd: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    route_reason: Mapped[Optional[str]] = mapped_column(String, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=True),

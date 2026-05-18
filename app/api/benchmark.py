@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -14,6 +14,8 @@ from app.auth import get_current_user_id
 from app.db import get_db
 from app.models.mvp import Item, ItemStatus, SummaryAttempt
 from app.settings import settings
+from app.llm.prompts import DEFAULT_PROMPT_VERSION, get_prompt
+from app.llm.routing import choose_model_key
 
 router = APIRouter(prefix="/benchmark", tags=["benchmark"])
 
@@ -111,16 +113,21 @@ def _run_single_tier(
         }
 
 
-@router.post("/{item_id}")
-def run_benchmark(
+@router.post("/{item_id}/prompt-compare")
+def prompt_compare_benchmark(
     item_id: UUID,
     db: Session = Depends(get_db),
     user_id: UUID = Depends(get_current_user_id),
 ) -> dict:
     """
-    Run the same article through all 3 model tiers simultaneously.
-    Returns side-by-side comparison of latency, cost, word count, and output.
+    Run strong tier only against prompt versions v0 and v1 in parallel.
     """
+    for pv in ("v0", "v1"):
+        try:
+            get_prompt(pv)
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"Invalid prompt_version: {pv}")
+
     item = db.scalar(select(Item).where(Item.id == item_id, Item.user_id == user_id))
     if item is None:
         raise HTTPException(status_code=404, detail="Item not found.")
@@ -136,7 +143,63 @@ def run_benchmark(
         raise HTTPException(status_code=409, detail="Item has no text to benchmark.")
 
     text = canonical_text[:20_000]
-    prompt_version = "v0"
+
+    from app.db import SessionLocal
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+        fut_v0 = executor.submit(_run_single_tier, text, "strong", "v0", item_id, SessionLocal)
+        fut_v1 = executor.submit(_run_single_tier, text, "strong", "v1", item_id, SessionLocal)
+        r_v0 = fut_v0.result()
+        r_v1 = fut_v1.result()
+
+    return {
+        "item_id": str(item_id),
+        "input_chars": len(text),
+        "input_tokens_estimate": _estimate_tokens(text),
+        "model_key": "strong",
+        "results": {
+            "v0": r_v0,
+            "v1": r_v1,
+        },
+    }
+
+
+@router.post("/{item_id}")
+def run_benchmark(
+    item_id: UUID,
+    prompt_version: Optional[str] = Query(default=None),
+    db: Session = Depends(get_db),
+    user_id: UUID = Depends(get_current_user_id),
+) -> dict:
+    """
+    Run the same article through all 3 model tiers simultaneously.
+    Returns side-by-side comparison of latency, cost, word count, and output.
+    """
+    effective_prompt_version = prompt_version or DEFAULT_PROMPT_VERSION
+    try:
+        get_prompt(effective_prompt_version)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid prompt_version")
+
+    item = db.scalar(select(Item).where(Item.id == item_id, Item.user_id == user_id))
+    if item is None:
+        raise HTTPException(status_code=404, detail="Item not found.")
+
+    if item.status != ItemStatus.succeeded:
+        raise HTTPException(status_code=409, detail="Item must be in succeeded status to benchmark.")
+
+    canonical_text = None
+    if item.content is not None:
+        canonical_text = item.content.canonical_text
+
+    if not canonical_text or not canonical_text.strip():
+        raise HTTPException(status_code=409, detail="Item has no text to benchmark.")
+
+    recommended_model_key, recommended_route_reason = choose_model_key(
+        canonical_text, task_type="item_summary"
+    )
+
+    text = canonical_text[:20_000]
     model_keys = ["strong", "mid", "budget"]
 
     # Run all 3 tiers in parallel
@@ -145,7 +208,7 @@ def run_benchmark(
     with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
         futures = {
             executor.submit(
-                _run_single_tier, text, key, prompt_version, item_id, SessionLocal
+                _run_single_tier, text, key, effective_prompt_version, item_id, SessionLocal
             ): key
             for key in model_keys
         }
@@ -160,6 +223,8 @@ def run_benchmark(
         "item_id": str(item_id),
         "input_chars": len(text),
         "input_tokens_estimate": _estimate_tokens(text),
-        "prompt_version": prompt_version,
+        "prompt_version": effective_prompt_version,
+        "recommended_model_key": recommended_model_key,
+        "recommended_route_reason": recommended_route_reason,
         "results": results,
     }
