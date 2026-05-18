@@ -1,0 +1,19 @@
+.PHONY: db-up db-down migrate downgrade revision
+
+db-up:
+	docker compose up -d db
+
+db-down:
+	docker compose down
+
+migrate:
+	alembic upgrade head
+
+# Default: step back one revision. You can override with: make downgrade REV=base
+downgrade:
+	alembic downgrade $(REV:-1)
+
+# Create an empty revision file (no autogenerate; we have no models yet).
+# Usage: make revision MSG="create_items_table"
+revision:
+	alembic revision -m "$(MSG)"

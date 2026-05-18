@@ -1,0 +1,28 @@
+@import "tailwindcss";
+
+:root {
+  --nudge-bg: #f4d23b;
+  --nudge-fg: #111111;
+  --nudge-muted: #2a2a2a;
+  --nudge-accent: #b3322a;
+  --nudge-card: rgba(255, 255, 255, 0.18);
+}
+
+@theme inline {
+  --color-nudge-bg: var(--nudge-bg);
+  --color-nudge-fg: var(--nudge-fg);
+  --color-nudge-muted: var(--nudge-muted);
+  --color-nudge-accent: var(--nudge-accent);
+  --color-nudge-card: var(--nudge-card);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --font-serif: var(--font-serif);
+  --font-script: var(--font-script);
+}
+
+body {
+  background: var(--nudge-bg);
+  color: var(--nudge-fg);
+  font-family: var(--font-serif), serif;
+  min-height: 100vh;
+}
