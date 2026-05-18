@@ -31,6 +31,8 @@ from app.schemas.items import (
     ItemTextPatchRequest,
     ItemContentOut,
 )
+from app.llm.prompts import DEFAULT_PROMPT_VERSION, get_prompt
+from app.llm.routing import choose_model_key
 
 router = APIRouter(prefix="/items", tags=["items"])
 
@@ -40,7 +42,6 @@ logger = logging.getLogger(__name__)
 MAX_INPUT_CHARS = 20_000
 WORD_CAP = 200
 ALLOWED_MODEL_KEYS = {"strong", "mid", "budget"}
-PROMPT_VERSION = "v0"
 
 
 def _encode_cursor(created_at: datetime, item_id: UUID) -> str:
@@ -235,6 +236,44 @@ def _truncate_to_words(s: str, max_words: int) -> str:
             return truncated[:last + 1].strip()
     return truncated
 
+
+def _estimate_tokens(text: str) -> int:
+    # Rough estimate: 1 token ≈ 4 characters
+    return len(text) // 4
+
+
+def _estimate_cost(input_text: str, output_text: str, provider: str) -> float:
+    input_tokens = _estimate_tokens(input_text)
+    output_tokens = _estimate_tokens(output_text)
+    total_tokens = input_tokens + output_tokens
+    rate = 0.00014 if (provider or "").strip().lower() == "deepseek" else 0.001
+    return round((total_tokens / 1000) * rate, 6)
+
+
+def _classify_summary_error(error: Exception) -> str:
+    msg = str(error).lower()
+    if "timeout" in msg:
+        return "provider_timeout"
+    if "rate limit" in msg:
+        return "rate_limit"
+    if "empty" in msg:
+        return "empty_summary"
+    if "provider" in msg:
+        return "provider_error"
+    return "unknown_error"
+
+
+def _fallback_model_key(model_key: str) -> str | None:
+    k = (model_key or "").strip().lower()
+    if k == "budget":
+        return "mid"
+    if k == "mid":
+        return "strong"
+    if k == "strong":
+        return None
+    return None
+
+
 @router.get("/{item_id}/summary")
 def get_item_summary(
     item_id: UUID,
@@ -266,6 +305,7 @@ def get_item_summary(
 def create_item_summary(
     item_id: UUID,
     model_key: Optional[str] = Query(default=None),
+    prompt_version: Optional[str] = Query(default=None),
     db: Session = Depends(get_db),
     user_id: UUID = Depends(get_current_user_id),
 ) -> PlainTextResponse:
@@ -274,13 +314,11 @@ def create_item_summary(
 
     Response is text/plain (NOT JSON).
     """
-        # Validate model_key per contract (400, not 422).
-    effective_model_key = (model_key or settings.llm_default_model_key).strip().lower()
+    effective_prompt_version = prompt_version or DEFAULT_PROMPT_VERSION
     try:
-        model_cfg = settings.get_model_config(effective_model_key)
-    except Exception as e:  # noqa: BLE001
-        raise HTTPException(status_code=400, detail="Invalid model_key") from e
- 
+        get_prompt(effective_prompt_version)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid prompt_version")
 
     item = db.scalar(select(Item).where(Item.id == item_id, Item.user_id == user_id))
     if item is None:
@@ -297,9 +335,21 @@ def create_item_summary(
         # Chosen consistently as 409 per task instruction.
         raise HTTPException(status_code=409, detail="Item has no canonical_text to summarize.")
 
+    if model_key is not None and model_key.strip() != "":
+        effective_model_key = model_key.strip().lower()
+        route_reason = "manual_model_key"
+    else:
+        effective_model_key, route_reason = choose_model_key(canonical_text, task_type="item_summary")
+
+    try:
+        settings.get_model_config(effective_model_key)
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(status_code=400, detail="Invalid model_key") from e
+
     input_chars_original = len(canonical_text)
     truncated = canonical_text[:MAX_INPUT_CHARS]
     input_chars_used = len(truncated)
+    input_tokens_est = _estimate_tokens(truncated)
 
     # summary_attempts (append-only) — record start
     started_at = datetime.now(timezone.utc)
@@ -321,12 +371,14 @@ def create_item_summary(
             model_key=effective_model_key,
             provider=None,
             model=None,
-            prompt_version=PROMPT_VERSION,
+            prompt_version=effective_prompt_version,
             started_at=started_at,
             finished_at=None,
             status="failed",  # will flip to succeeded on success
             error_detail=None,
             latency_ms=None,
+            input_tokens_est=input_tokens_est,
+            route_reason=route_reason,
         )
         db.add(attempt_row)
         db.commit()
@@ -335,11 +387,80 @@ def create_item_summary(
         # If attempt logging fails, we still proceed with summary generation.
         db.rollback()
 
-        # Generate (provider-agnostic stub)
     from app.llm.client import generate_summary
 
+    def _mark_attempt_failed(row: SummaryAttempt | None, err: Exception) -> None:
+        if row is None:
+            return
+        failure_code = _classify_summary_error(err)
+        error_detail = f"{failure_code}: {str(err)}"
+        try:
+            row.finished_at = datetime.now(timezone.utc)
+            row.status = "failed"
+            row.error_detail = error_detail
+            db.add(row)
+            db.commit()
+        except Exception:
+            db.rollback()
+
     try:
-        result = generate_summary(truncated, effective_model_key, PROMPT_VERSION)
+        result = generate_summary(truncated, effective_model_key, effective_prompt_version)
+        model_for_summary = effective_model_key
+        attempt_for_summary = attempt_row
+    except HTTPException:
+        raise
+    except Exception as e:
+        _mark_attempt_failed(attempt_row, e)
+        fb = _fallback_model_key(effective_model_key)
+        if fb is None:
+            raise HTTPException(status_code=500, detail="Summary generation failed.") from e
+        try:
+            settings.get_model_config(fb)
+        except Exception as err_cfg:  # noqa: BLE001
+            raise HTTPException(status_code=400, detail="Invalid model_key") from err_cfg
+
+        started_fb = datetime.now(timezone.utc)
+        attempt_row_fb: SummaryAttempt | None = None
+        try:
+            max_fb = db.scalar(
+                select(func.max(SummaryAttempt.attempt_no)).where(
+                    SummaryAttempt.item_id == item.id,
+                    SummaryAttempt.model_key == fb,
+                )
+            )
+            attempt_no_fb = (max_fb or 0) + 1
+            attempt_row_fb = SummaryAttempt(
+                item_id=item.id,
+                attempt_no=attempt_no_fb,
+                model_key=fb,
+                provider=None,
+                model=None,
+                prompt_version=effective_prompt_version,
+                started_at=started_fb,
+                finished_at=None,
+                status="failed",
+                error_detail=None,
+                latency_ms=None,
+                input_tokens_est=input_tokens_est,
+                route_reason=f"fallback_from_{effective_model_key}",
+            )
+            db.add(attempt_row_fb)
+            db.commit()
+            db.refresh(attempt_row_fb)
+        except Exception:
+            db.rollback()
+
+        try:
+            result = generate_summary(truncated, fb, effective_prompt_version)
+            model_for_summary = fb
+            attempt_for_summary = attempt_row_fb
+        except HTTPException:
+            raise
+        except Exception as e2:
+            _mark_attempt_failed(attempt_row_fb, e2)
+            raise HTTPException(status_code=500, detail="Summary generation failed.") from e2
+
+    try:
         provider = result.get("provider")
         model = result.get("model")
         latency_ms = result.get("latency_ms")
@@ -350,15 +471,19 @@ def create_item_summary(
             summary_text = _truncate_to_words(summary_text, WORD_CAP)
 
         output_words = _count_words(summary_text)
+        output_tokens_est = _estimate_tokens(summary_text)
+        estimated_cost_usd = _estimate_cost(
+            truncated, summary_text, str(provider) if provider is not None else ""
+        )
 
         # Persist canonical summary row
         summary_row = ItemSummary(
             item_id=item.id,
             user_id=user_id,
-            model_key=effective_model_key,
+            model_key=model_for_summary,
             provider=provider,
             model=model,
-            prompt_version=PROMPT_VERSION,
+            prompt_version=effective_prompt_version,
             input_chars_original=input_chars_original,
             input_chars_used=input_chars_used,
             output_words=output_words,
@@ -368,21 +493,23 @@ def create_item_summary(
 
         # Update attempt row on success
         finished_at = datetime.now(timezone.utc)
-        if attempt_row is not None:
-            attempt_row.provider = provider
-            attempt_row.model = model
-            attempt_row.finished_at = finished_at
-            attempt_row.latency_ms = latency_ms
-            attempt_row.status = "succeeded"
-            attempt_row.error_detail = None
-            db.add(attempt_row)
+        if attempt_for_summary is not None:
+            attempt_for_summary.provider = provider
+            attempt_for_summary.model = model
+            attempt_for_summary.finished_at = finished_at
+            attempt_for_summary.latency_ms = latency_ms
+            attempt_for_summary.status = "succeeded"
+            attempt_for_summary.error_detail = None
+            attempt_for_summary.output_tokens_est = output_tokens_est
+            attempt_for_summary.estimated_cost_usd = estimated_cost_usd
+            db.add(attempt_for_summary)
 
         db.commit()
 
         logger.info(
             "summary_generated item_id=%s model_key=%s provider=%s model=%s input_chars_used=%s output_words=%s latency_ms=%s",
             str(item.id),
-            effective_model_key,
+            model_for_summary,
             provider,
             model,
             input_chars_used,
@@ -395,16 +522,5 @@ def create_item_summary(
     except HTTPException:
         raise
     except Exception as e:  # noqa: BLE001
-        # Best-effort attempt update
-        try:
-            finished_at = datetime.now(timezone.utc)
-            if attempt_row is not None:
-                attempt_row.finished_at = finished_at
-                attempt_row.status = "failed"
-                attempt_row.error_detail = str(e)
-                db.add(attempt_row)
-                db.commit()
-        except Exception:
-            db.rollback()
-
+        _mark_attempt_failed(attempt_for_summary, e)
         raise HTTPException(status_code=500, detail="Summary generation failed.") from e

@@ -168,6 +168,63 @@ def get_analytics(
 
     per_tier = _per_tier_stats(db, user_id)
 
+    user_attempt_join = (
+        select(SummaryAttempt.route_reason, func.count().label("cnt"))
+        .select_from(SummaryAttempt)
+        .join(Item, SummaryAttempt.item_id == Item.id)
+        .where(Item.user_id == user_id)
+        .group_by(SummaryAttempt.route_reason)
+    )
+    route_reason_breakdown: dict[str, int] = {}
+    fallback_retry_count = 0
+    for row in db.execute(user_attempt_join).all():
+        rr = row.route_reason
+        cnt = int(row.cnt or 0)
+        key = rr if rr is not None else "(null)"
+        route_reason_breakdown[key] = cnt
+        if rr is not None and rr.startswith("fallback_from_"):
+            fallback_retry_count += cnt
+
+    failure_rows = db.scalars(
+        select(SummaryAttempt.error_detail)
+        .select_from(SummaryAttempt)
+        .join(Item, SummaryAttempt.item_id == Item.id)
+        .where(
+            Item.user_id == user_id,
+            SummaryAttempt.status == "failed",
+            SummaryAttempt.error_detail.isnot(None),
+        )
+    ).all()
+    failure_category_breakdown: dict[str, int] = {}
+    for ed in failure_rows:
+        if not ed or not str(ed).strip():
+            cat = "(empty)"
+        else:
+            cat = str(ed).split(":", 1)[0].strip() or "(empty)"
+        failure_category_breakdown[cat] = failure_category_breakdown.get(cat, 0) + 1
+
+    avg_cost_stmt = (
+        select(
+            SummaryAttempt.model_key,
+            func.avg(SummaryAttempt.estimated_cost_usd).label("avg_cost"),
+        )
+        .select_from(SummaryAttempt)
+        .join(Item, SummaryAttempt.item_id == Item.id)
+        .where(
+            Item.user_id == user_id,
+            SummaryAttempt.estimated_cost_usd.isnot(None),
+        )
+        .group_by(SummaryAttempt.model_key)
+    )
+    avg_estimated_cost_usd_by_model_key: list[dict[str, Any]] = []
+    for row in db.execute(avg_cost_stmt).all():
+        avg_estimated_cost_usd_by_model_key.append(
+            {
+                "model_key": row.model_key,
+                "avg_estimated_cost_usd": float(row.avg_cost) if row.avg_cost is not None else None,
+            }
+        )
+
     today_utc = datetime.now(timezone.utc).date()
     start_utc = today_utc - timedelta(days=13)
     start_dt = datetime.combine(start_utc, datetime.min.time(), tzinfo=timezone.utc)
@@ -199,4 +256,8 @@ def get_analytics(
         "success_rate": success_rate,
         "per_tier": per_tier,
         "daily_counts": daily_counts,
+        "route_reason_breakdown": route_reason_breakdown,
+        "failure_category_breakdown": failure_category_breakdown,
+        "fallback_retry_count": fallback_retry_count,
+        "avg_estimated_cost_usd_by_model_key": avg_estimated_cost_usd_by_model_key,
     }
