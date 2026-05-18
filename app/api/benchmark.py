@@ -113,6 +113,57 @@ def _run_single_tier(
         }
 
 
+@router.post("/{item_id}/prompt-compare")
+def prompt_compare_benchmark(
+    item_id: UUID,
+    db: Session = Depends(get_db),
+    user_id: UUID = Depends(get_current_user_id),
+) -> dict:
+    """
+    Run strong tier only against prompt versions v0 and v1 in parallel.
+    """
+    for pv in ("v0", "v1"):
+        try:
+            get_prompt(pv)
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"Invalid prompt_version: {pv}")
+
+    item = db.scalar(select(Item).where(Item.id == item_id, Item.user_id == user_id))
+    if item is None:
+        raise HTTPException(status_code=404, detail="Item not found.")
+
+    if item.status != ItemStatus.succeeded:
+        raise HTTPException(status_code=409, detail="Item must be in succeeded status to benchmark.")
+
+    canonical_text = None
+    if item.content is not None:
+        canonical_text = item.content.canonical_text
+
+    if not canonical_text or not canonical_text.strip():
+        raise HTTPException(status_code=409, detail="Item has no text to benchmark.")
+
+    text = canonical_text[:20_000]
+
+    from app.db import SessionLocal
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+        fut_v0 = executor.submit(_run_single_tier, text, "strong", "v0", item_id, SessionLocal)
+        fut_v1 = executor.submit(_run_single_tier, text, "strong", "v1", item_id, SessionLocal)
+        r_v0 = fut_v0.result()
+        r_v1 = fut_v1.result()
+
+    return {
+        "item_id": str(item_id),
+        "input_chars": len(text),
+        "input_tokens_estimate": _estimate_tokens(text),
+        "model_key": "strong",
+        "results": {
+            "v0": r_v0,
+            "v1": r_v1,
+        },
+    }
+
+
 @router.post("/{item_id}")
 def run_benchmark(
     item_id: UUID,
