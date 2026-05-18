@@ -36,6 +36,13 @@ interface PromptCompareResponse {
   results: { v0: BenchmarkResult; v1: BenchmarkResult };
 }
 
+interface AnalyticsInsightsPayload {
+  route_reason_breakdown: Record<string, number>;
+  failure_category_breakdown: Record<string, number>;
+  fallback_retry_count: number;
+  avg_estimated_cost_usd_by_model_key: Array<{ model_key: string; avg_estimated_cost_usd: number | null }>;
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 const API_BASE_URL = (process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000").replace(/\/$/, "");
@@ -78,6 +85,30 @@ async function runPromptCompare(itemId: string): Promise<PromptCompareResponse> 
     throw new Error(msg || `${res.status} ${res.statusText}`);
   }
   return res.json() as Promise<PromptCompareResponse>;
+}
+
+async function fetchAnalyticsInsights(): Promise<AnalyticsInsightsPayload> {
+  const token = typeof window !== "undefined" ? localStorage.getItem("nudge_token") : null;
+  const res = await fetch(`${API_BASE_URL}/analytics/`, {
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  });
+  if (!res.ok) {
+    const raw = await res.text().catch(() => "");
+    let msg = raw;
+    try { msg = (JSON.parse(raw) as { detail?: string }).detail ?? raw; } catch { /* */ }
+    throw new Error(msg || `${res.status} ${res.statusText}`);
+  }
+  const raw = (await res.json()) as Record<string, unknown>;
+  return {
+    route_reason_breakdown: (raw.route_reason_breakdown as Record<string, number>) ?? {},
+    failure_category_breakdown: (raw.failure_category_breakdown as Record<string, number>) ?? {},
+    fallback_retry_count: Number(raw.fallback_retry_count ?? 0),
+    avg_estimated_cost_usd_by_model_key: Array.isArray(raw.avg_estimated_cost_usd_by_model_key)
+      ? (raw.avg_estimated_cost_usd_by_model_key as AnalyticsInsightsPayload["avg_estimated_cost_usd_by_model_key"])
+      : [],
+  };
 }
 
 type BenchmarkViewState =
@@ -149,6 +180,9 @@ export default function BenchmarkPage() {
   const [view, setView] = useState<BenchmarkViewState | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loadingItems, setLoadingItems] = useState(true);
+  const [analyticsInsights, setAnalyticsInsights] = useState<AnalyticsInsightsPayload | null>(null);
+  const [analyticsInsightsError, setAnalyticsInsightsError] = useState<string | null>(null);
+  const [analyticsInsightsLoading, setAnalyticsInsightsLoading] = useState(false);
 
   // Auth guard
   useEffect(() => {
@@ -171,6 +205,17 @@ export default function BenchmarkPage() {
       document.body.style.color = prevColor;
     };
   }, []);
+
+  // System insights (analytics)
+  useEffect(() => {
+    if (!isAuthChecked) return;
+    setAnalyticsInsightsLoading(true);
+    setAnalyticsInsightsError(null);
+    fetchAnalyticsInsights()
+      .then(setAnalyticsInsights)
+      .catch((e) => setAnalyticsInsightsError(e instanceof Error ? e.message : "Failed to load analytics"))
+      .finally(() => setAnalyticsInsightsLoading(false));
+  }, [isAuthChecked]);
 
   // Load succeeded items
   useEffect(() => {
@@ -276,6 +321,86 @@ export default function BenchmarkPage() {
             Runs your article through all three LLM tiers in parallel — Strong, Mid, and Budget — and compares latency, cost, and output quality side by side.
           </p>
         </div>
+
+        {/* System Insights */}
+        <section style={{ marginBottom: 32 }}>
+          <div style={{ fontSize: 10, letterSpacing: "0.22em", textTransform: "uppercase", color: C.dim, marginBottom: 10 }}>
+            System Insights
+          </div>
+          {analyticsInsightsLoading && (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 12 }}>
+              {[0, 1, 2, 3].map((i) => (
+                <div key={i} style={{ borderRadius: 8, border: `1px solid ${C.border}`, backgroundColor: C.bg2, padding: 12, minHeight: 72 }} />
+              ))}
+            </div>
+          )}
+          {analyticsInsightsError && !analyticsInsightsLoading && (
+            <div style={{ fontSize: 12, color: C.red, borderRadius: 6, border: `1px solid ${C.redBdr}`, backgroundColor: C.redBg, padding: "10px 12px" }}>
+              {analyticsInsightsError}
+            </div>
+          )}
+          {analyticsInsights && !analyticsInsightsLoading && (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 12 }}>
+              <div style={{ borderRadius: 8, border: `1px solid ${C.border}`, backgroundColor: C.bg2, padding: "12px 14px" }}>
+                <div style={{ fontSize: 10, letterSpacing: "0.18em", textTransform: "uppercase", color: C.dim, marginBottom: 8 }}>Route reason breakdown</div>
+                {Object.keys(analyticsInsights.route_reason_breakdown).length === 0 ? (
+                  <div style={{ fontSize: 11, color: C.muted }}>No data</div>
+                ) : (
+                  <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 4 }}>
+                    {Object.entries(analyticsInsights.route_reason_breakdown)
+                      .sort((a, b) => b[1] - a[1])
+                      .map(([k, v]) => (
+                        <li key={k} style={{ display: "flex", justifyContent: "space-between", gap: 8, fontSize: 11, fontFamily: "monospace" }}>
+                          <span style={{ wordBreak: "break-word", color: C.text }}>{k}</span>
+                          <span style={{ color: C.bright, flexShrink: 0 }}>{v}</span>
+                        </li>
+                      ))}
+                  </ul>
+                )}
+              </div>
+              <div style={{ borderRadius: 8, border: `1px solid ${C.border}`, backgroundColor: C.bg2, padding: "12px 14px" }}>
+                <div style={{ fontSize: 10, letterSpacing: "0.18em", textTransform: "uppercase", color: C.dim, marginBottom: 8 }}>Failure category breakdown</div>
+                {Object.keys(analyticsInsights.failure_category_breakdown).length === 0 ? (
+                  <div style={{ fontSize: 11, color: C.muted }}>No data</div>
+                ) : (
+                  <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 4 }}>
+                    {Object.entries(analyticsInsights.failure_category_breakdown)
+                      .sort((a, b) => b[1] - a[1])
+                      .map(([k, v]) => (
+                        <li key={k} style={{ display: "flex", justifyContent: "space-between", gap: 8, fontSize: 11, fontFamily: "monospace" }}>
+                          <span style={{ wordBreak: "break-word", color: C.text }}>{k}</span>
+                          <span style={{ color: C.bright, flexShrink: 0 }}>{v}</span>
+                        </li>
+                      ))}
+                  </ul>
+                )}
+              </div>
+              <div style={{ borderRadius: 8, border: `1px solid ${C.border}`, backgroundColor: C.bg2, padding: "12px 14px" }}>
+                <div style={{ fontSize: 10, letterSpacing: "0.18em", textTransform: "uppercase", color: C.dim, marginBottom: 8 }}>Fallback retry count</div>
+                <div style={{ fontSize: 20, fontWeight: 700, color: C.amber, fontFamily: "monospace" }}>
+                  {analyticsInsights.fallback_retry_count}
+                </div>
+              </div>
+              <div style={{ borderRadius: 8, border: `1px solid ${C.border}`, backgroundColor: C.bg2, padding: "12px 14px" }}>
+                <div style={{ fontSize: 10, letterSpacing: "0.18em", textTransform: "uppercase", color: C.dim, marginBottom: 8 }}>Avg est. cost by model_key</div>
+                {analyticsInsights.avg_estimated_cost_usd_by_model_key.length === 0 ? (
+                  <div style={{ fontSize: 11, color: C.muted }}>No data</div>
+                ) : (
+                  <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 4 }}>
+                    {analyticsInsights.avg_estimated_cost_usd_by_model_key.map((row) => (
+                      <li key={row.model_key} style={{ display: "flex", justifyContent: "space-between", gap: 8, fontSize: 11, fontFamily: "monospace" }}>
+                        <span style={{ color: TIER_ACCENT[row.model_key] ?? C.text }}>{row.model_key}</span>
+                        <span style={{ color: C.bright, flexShrink: 0 }}>
+                          {row.avg_estimated_cost_usd != null ? formatCost(row.avg_estimated_cost_usd) : "—"}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+          )}
+        </section>
 
         {/* Controls */}
         <div style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-end", gap: 16, marginBottom: 32 }}>
